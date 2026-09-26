@@ -64,6 +64,39 @@ class CollectorOpsViewTests(unittest.TestCase):
         self.assertIn("刷新数据" if "刷新数据" in labels else "运行一轮采集", labels)
 
 
+    def test_shows_throughput_volume_and_region_coverage(self) -> None:
+        """吞吐曲线 / 新增量 / 地区覆盖必须可见。
+
+        这些内容此前只存在于 scripts/collection_report.py，也就是只能从命令行
+        看到，工作台里看不到。断言分区与图表，防止后续重构把它们悄悄丢掉。
+        """
+        at = open_view_retry("采集运维")
+        self.assertEqual([e.message for e in at.exception], [])
+        body = visible_text(at)
+        for section in ("采集吞吐与产出", "地区覆盖", "累计取回", "真正新增",
+                        "重复命中", "地区归属覆盖率", "覆盖省级区划"):
+            with self.subTest(section=section):
+                self.assertIn(section, body)
+        # 图表与 dataframe 的内容在 AppTest 里取不到，但页面上的数字可以核对：
+        # 吞吐面板显示的累计取回/真正新增必须等于数据层算出来的值。
+        import collector_ops as ops
+        summary = ops.rounds_summary()
+        self.assertGreater(summary.get("rounds", 0), 0, "data/rounds.jsonl 应有轮次记录")
+        self.assertIn(str(summary["fetched"]), body, "累计取回与数据层不一致")
+        self.assertIn(str(summary["inserted"]), body, "真正新增与数据层不一致")
+        region = ops.region_breakdown()
+        self.assertIn(f"{region['coverage']:.1%}", body, "地区覆盖率与数据层不一致")
+        self.assertGreaterEqual(len(at.dataframe), 3, "应有多张明细表")
+
+    def test_lists_every_health_metric_not_only_the_failing_ones(self) -> None:
+        at = open_view_retry("采集运维")
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertTrue(
+            any("全部体检指标" in str(getattr(b, "label", "")) for b in at.get("expander")),
+            "缺少列出全部体检指标的折叠面板",
+        )
+
+
 class EvolutionViewTests(unittest.TestCase):
     def test_reports_defect_counts_and_queue(self) -> None:
         at = open_view_retry("进化仪表盘")

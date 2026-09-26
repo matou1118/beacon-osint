@@ -116,6 +116,85 @@ def render(db_path: str = "data/beacon.db") -> None:
         with st.expander("上次采集输出", expanded=True):
             st.code(str(st.session_state["ops_collect_output"]), language="text")
 
+    # ── 采集吞吐与产出 ──
+    st.markdown("<div class='section-label' style='margin-top:1rem'>采集吞吐与产出</div>",
+                unsafe_allow_html=True)
+    rounds = ops.read_rounds()
+    summary = ops.rounds_summary(rounds)
+    if not summary.get("rounds"):
+        st.info("尚无轮次记录。运行 scripts/batch_collect.py 后，每轮会写入 data/rounds.jsonl。")
+    else:
+        st.markdown(
+            f"<div class='metric-row'>"
+            f"<div class='metric'><div class='metric-value'>{summary['rounds']}</div>"
+            f"<div class='metric-note'>已完成轮次</div></div>"
+            f"<div class='metric'><div class='metric-value'>{summary['fetched']}</div>"
+            f"<div class='metric-note'>累计取回</div></div>"
+            f"<div class='metric'><div class='metric-value'>{summary['inserted']}</div>"
+            f"<div class='metric-note'>真正新增</div></div>"
+            f"<div class='metric'><div class='metric-value'>{summary['duplicates']}</div>"
+            f"<div class='metric-note'>重复命中</div></div>"
+            f"<div class='metric'><div class='metric-value'>{summary['records_per_hour']:.0f}</div>"
+            f"<div class='metric-note'>条/小时</div></div>"
+            f"<div class='metric'><div class='metric-value'>{summary['wall_seconds']/3600:.1f}h</div>"
+            f"<div class='metric-note'>累计墙钟</div></div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        if summary.get("exhausted"):
+            st.warning(
+                f"最近 {summary['dry_rounds']} 轮没有新增记录：启用源在当前 "
+                f"max_items/archive_pages 深度已取完。继续重复只会反复请求同样的站点。"
+                f"要拿量需提高采集深度，或解冻待审源（--all-statuses）。"
+            )
+        # 吞吐与新增量曲线：新增量为 0 的轮次说明源已抽干，而非采集器变慢。
+        st.markdown(
+            f"<div class='aux-stat'><span>并发口径</span><b>"
+            f"源级成功 {summary['sources_ok']} / 失败 {summary['sources_failed']}</b></div>"
+            f"<div class='aux-stat'><span>区间</span><b>"
+            f"{html.escape(str(summary.get('first_at') or '')[11:19])} → "
+            f"{html.escape(str(summary.get('last_at') or '')[11:19])}</b></div>",
+            unsafe_allow_html=True,
+        )
+        st.line_chart(
+            {"取回条数": [int(r.get("records") or 0) for r in rounds],
+             "新增入库": [int(r.get("inserted") or 0) for r in rounds]},
+            x_label="轮次（按时间顺序）",
+            y_label="条数",
+        )
+        st.dataframe(
+            [{"轮": r.get("round"), "时间": str(r.get("at") or "")[11:19],
+              "到期源": r.get("todo"), "成功": r.get("success"), "失败": r.get("failed"),
+              "取回": r.get("records"), "新增": r.get("inserted"), "更新": r.get("updated"),
+              "重复": r.get("unchanged"), "墙钟(分)": round(float(r.get("wall_seconds") or 0) / 60, 1),
+              "条/分": r.get("records_per_minute")} for r in rounds],
+            use_container_width=True, hide_index=True,
+        )
+
+    # ── 地区覆盖 ──
+    st.markdown("<div class='section-label' style='margin-top:1rem'>地区覆盖</div>",
+                unsafe_allow_html=True)
+    region = ops.region_breakdown()
+    if region.get("error"):
+        st.error(f"地区统计失败：{region['error']}")
+    else:
+        st.markdown(
+            f"<div class='metric-row'>"
+            f"<div class='metric'><div class='metric-value'>{region['coverage']:.1%}</div>"
+            f"<div class='metric-note'>地区归属覆盖率</div></div>"
+            f"<div class='metric'><div class='metric-value'>{region['provinces']}</div>"
+            f"<div class='metric-note'>覆盖省级区划</div></div>"
+            f"<div class='metric'><div class='metric-value'>{region['unattributed']}</div>"
+            f"<div class='metric-note'>未标注地区</div></div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        named = [(p, c) for p, c in region["rows"] if p != "（未标注）"]
+        if named:
+            st.bar_chart(dict(named), horizontal=True, height=min(560, 26 * len(named) + 60))
+        else:
+            st.caption("尚无带地区归属的记录。")
+
     # ── 体检 ──
     st.markdown("<div class='section-label' style='margin-top:1rem'>数据体检</div>", unsafe_allow_html=True)
     if not health:
@@ -142,6 +221,19 @@ def render(db_path: str = "data/beacon.db") -> None:
             )
         else:
             st.success("全部体检指标达标。")
+
+        # 全量面板：达标项此前只在卡片里露出 8 个，这里按体检自身的 findings
+        # 列出全部，达标与未达标一眼可比，而不是只看到没达标的那几行。
+        with st.expander(f"全部体检指标（{len(health['findings'])} 项，"
+                         f"未达标 {len(failing)}）", expanded=False):
+            st.dataframe(
+                [{"状态": "达标" if f["ok"] else "未达标",
+                  "指标": f["metric"],
+                  "说明": METRIC_LABEL.get(f["metric"], f["metric"]),
+                  "当前值": f["value"], "要求": f["threshold"]}
+                 for f in health["findings"]],
+                use_container_width=True, hide_index=True,
+            )
 
     # ── 自修正历史 ──
     st.markdown("<div class='section-label' style='margin-top:1rem'>规则自修正记录</div>", unsafe_allow_html=True)

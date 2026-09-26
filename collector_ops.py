@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 import subprocess
 import sys
 from collections import Counter
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config" / "sources.yaml"
 PROGRESS = ROOT / "data" / "runtime" / "collect_progress.json"
 IMPROVE_LOG = ROOT / "data" / "self_improve_log.jsonl"
+ROUNDS_LOG = ROOT / "data" / "rounds.jsonl"
 SOURCES_MEDIA = ROOT / "config" / "media_sources.yaml"
 
 STATUS_LABEL = {
@@ -82,6 +84,57 @@ def read_progress() -> dict[str, Any] | None:
     return None
 
 
+def read_rounds(limit: int | None = None) -> list[dict[str, Any]]:
+    """Per-round collection ledger written by scripts/batch_collect.py.
+
+    One JSON line per completed round: how many sources were due, how many
+    succeeded, how many records came back, and how many were actually new. The
+    inserted/unchanged split is what separates "the collector is working" from
+    "the sources are exhausted" -- repeating a pass over sources that have
+    yielded everything re-fetches the same rows and inserts nothing.
+    """
+    if not ROUNDS_LOG.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in ROUNDS_LOG.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows[-limit:] if limit else rows
+
+
+def rounds_summary(rounds: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Aggregate the round ledger into the numbers the workbench shows."""
+    rows = read_rounds() if rounds is None else rounds
+    if not rows:
+        return {"rounds": 0}
+    wall = sum(float(r.get("wall_seconds") or 0) for r in rows)
+    fetched = sum(int(r.get("records") or 0) for r in rows)
+    inserted = sum(int(r.get("inserted") or 0) for r in rows)
+    dry = sum(1 for r in rows if int(r.get("inserted") or 0) == 0)
+    return {
+        "rounds": len(rows),
+        "wall_seconds": wall,
+        "fetched": fetched,
+        "inserted": inserted,
+        "duplicates": fetched - inserted,
+        "dry_rounds": dry,
+        "sources_ok": sum(int(r.get("success") or 0) for r in rows),
+        "sources_failed": sum(int(r.get("failed") or 0) for r in rows),
+        "records_per_hour": round(fetched / wall * 3600, 1) if wall else 0.0,
+        # A run whose recent rounds insert nothing is scraping exhausted sources.
+        "exhausted": dry >= 3 and dry == len(rows[-3:]),
+        "first_at": rows[0].get("at"),
+        "last_at": rows[-1].get("at"),
+    }
+
+
 def read_improve_log(limit: int = 12) -> list[dict[str, Any]]:
     if not IMPROVE_LOG.exists():
         return []
@@ -105,9 +158,48 @@ def read_health() -> dict[str, Any] | None:
     except ImportError:
         return None
     try:
-        return {"metrics": data_health.measure(), "findings": data_health.check(data_health.measure())}
+        # measure() scans the whole corpus; calling it twice (once for metrics,
+        # once for findings) doubled the cost of every workbench rerender.
+        metrics = data_health.measure()
+        return {"metrics": metrics, "findings": data_health.check(metrics)}
     except Exception as exc:  # noqa: BLE001 - the page must not die on a bad DB
         return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def region_breakdown(db_path: str = "data/beacon.db", limit: int = 40) -> dict[str, Any]:
+    """Per-province record counts, for the coverage picture behind the scalar.
+
+    region_coverage_rate says how much of the corpus is attributed; this says
+    where it actually is, so a thin map is distinguishable from a broad but
+    shallow one.
+    """
+    path = ROOT / db_path if not Path(db_path).is_absolute() else Path(db_path)
+    if not path.exists():
+        return {"error": "数据库不存在"}
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT COUNT(*) FROM announcements")
+        total = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COALESCE(NULLIF(TRIM(region_province), ''), '（未标注）') AS p, COUNT(*) AS c "
+            "FROM announcements GROUP BY p ORDER BY c DESC"
+        )
+        rows = [(r["p"], r["c"]) for r in cur.fetchall()]
+    except sqlite3.Error as exc:
+        return {"error": str(exc)}
+    finally:
+        con.close()
+    attributed = sum(c for p, c in rows if p != "（未标注）")
+    return {
+        "total": total,
+        "attributed": attributed,
+        "coverage": round(attributed / total, 4) if total else 0.0,
+        "provinces": len([1 for p, _ in rows if p != "（未标注）"]),
+        "rows": rows[:limit],
+        "unattributed": total - attributed,
+    }
 
 
 def run_collection(limit: int = 5, timeout: int = 900) -> str:

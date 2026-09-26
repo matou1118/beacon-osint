@@ -222,22 +222,42 @@ def main():
                         help='also attempt blocked / pending_reprobe sources')
     parser.add_argument('--rounds', type=int, default=1, help='repeat the pass N times')
     parser.add_argument('--pause', type=int, default=0, help='seconds to wait between rounds')
+    parser.add_argument('--stop-when-dry', type=int, default=0,
+                        help='stop after N consecutive rounds that insert no new records '
+                             '(0 = never stop). Enabled sources yield a fixed set at the '
+                             'current max_items/archive_pages, so repeating the pass adds '
+                             'nothing while re-hitting the same government sites all night.')
     args = parser.parse_args()
 
     sources = load_sources(args.sources)
     say(f"源总数 {len(sources)} | limit={args.limit} | 每源预算 {args.timeout}s | "
         f"并发 {args.workers} | 轮数 {args.rounds}")
 
-    for round_no in range(1, max(1, args.rounds) + 1):
-        started_at = datetime.now(timezone.utc).isoformat()
+    total_rounds = max(1, args.rounds)
+    say(f"源总数 {len(sources)} | limit={args.limit} | 每源预算 {args.timeout}s | "
+        f"并发 {args.workers} | 轮数 {total_rounds}"
+        + (f" | 连续 {args.stop_when_dry} 轮无新增即停" if args.stop_when_dry else ""))
+
+    dry_streak = 0
+    for round_no in range(1, total_rounds + 1):
         say("=" * 66)
+        summary = {"round": round_no, "inserted": -1}
         try:
-            run_round(args, sources, round_no, max(1, args.rounds))
+            summary = run_round(args, sources, round_no, total_rounds)
         except Exception as exc:  # noqa: BLE001 - an overnight run must survive a bad round
             say(f"轮 {round_no} 异常中止: {type(exc).__name__}: {exc}")
             import traceback
             say(traceback.format_exc())
-        if round_no < max(1, args.rounds) and args.pause:
+        inserted = int(summary.get("inserted", -1))
+        if inserted > 0:
+            dry_streak = 0
+        elif inserted == 0:
+            dry_streak += 1
+        if args.stop_when_dry and dry_streak >= args.stop_when_dry:
+            say(f"连续 {dry_streak} 轮没有新增记录，停止。"
+                f"要继续拿量需提高 max_items/archive_pages 或解冻待审源。")
+            break
+        if round_no < total_rounds and args.pause:
             say(f"轮间等待 {args.pause}s ...")
             time.sleep(args.pause)
 
