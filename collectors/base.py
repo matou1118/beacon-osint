@@ -52,6 +52,14 @@ class BaseCollector(ABC):
         self.clock = clock
         self.sleep = sleep
         self._last_request_at: float | None = None
+        # Optional wall-clock budget for one collect() run, taken from the source
+        # dict so callers can set it without a new constructor argument. A source
+        # that runs out returns what it already has instead of being discarded.
+        budget = self.source.get("deadline_seconds")
+        try:
+            self._deadline: float | None = self.clock() + float(budget) if budget else None
+        except (TypeError, ValueError):
+            self._deadline = None
         self._robots_cache: dict[str, tuple[bool, str | None]] = {}
         self._owns_client = client is None
         self.client = client
@@ -434,6 +442,14 @@ class BaseCollector(ABC):
     def close(self) -> None:
         if self._owns_client and self.client is not None and hasattr(self.client, "close"):
             self.client.close()
+
+    def out_of_time(self) -> bool:
+        """True once the run's deadline_seconds budget is spent.
+
+        Collectors check this between items so a slow source degrades to a partial
+        result instead of being thrown away whole.
+        """
+        return self._deadline is not None and self.clock() >= self._deadline
 
     def __enter__(self) -> "BaseCollector":
         return self

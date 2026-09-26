@@ -4,6 +4,12 @@ PyJWT
 crawl4ai
 apscheduler
 blazerules
+# WAF 回退层：collectors/stealth_fetch.py 依赖这三个。
+# 它们的 import 全部包在 try/except 里返回 None，所以缺了不会报错，
+# 只会在遇到 403/412 的站点时静默采不到数据——必须显式安装。
+cloudscraper
+curl-cffi
+cloakbrowser
 feedparser
 gliner2[local]
 httpx

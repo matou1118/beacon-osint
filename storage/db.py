@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
-from sqlalchemy import create_engine, delete, func, select
+from sqlalchemy import create_engine, delete, event, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -52,9 +52,33 @@ class Database:
         if path == ":memory:":
             engine_options["poolclass"] = StaticPool
         self.engine = create_engine(url, **engine_options)
+        if path != ":memory:":
+            self._harden_sqlite_for_concurrent_writes()
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False, class_=Session)
         Base.metadata.create_all(self.engine)
         self._ensure_sqlite_columns()
+
+    def _harden_sqlite_for_concurrent_writes(self) -> None:
+        """Let the collector write from several source threads at once.
+
+        The batch runner collects sources in parallel, so several threads reach
+        mark_source_result() while others are still reading. Under the default
+        rollback journal a writer blocks every reader and a busy writer raises
+        "database is locked" outright. WAL allows one writer alongside many
+        readers, and a 30s busy timeout makes the remaining writer-writer overlap
+        wait rather than fail. synchronous=NORMAL is the usual companion to WAL:
+        durable across process crashes, and it does not fsync on every commit.
+        """
+
+        @event.listens_for(self.engine, "connect")
+        def _set_pragmas(dbapi_connection: Any, _record: Any) -> None:
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=30000")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+            finally:
+                cursor.close()
 
     def _ensure_sqlite_columns(self) -> None:
         if self.path == ":memory:":
@@ -481,57 +505,6 @@ class Database:
                         existing.value = value_text
                         existing.evidence_text = evidence
                         existing.updated_at = utcnow()
-                        result["updated"] += 1
-        return result
-
-    def save_attachments(self, records: list[Mapping[str, Any]]) -> dict[str, int]:
-        """把附件提取的文本存入 attachments 表。
-
-        只存文本，不存二进制文件。需要原文时用 source_url 重新下载。
-        """
-        result = {"inserted": 0, "updated": 0, "skipped": 0}
-        with self.session() as session:
-            for record in records:
-                texts = record.get("attachment_texts") or []
-                if not texts:
-                    continue
-                source_id = str(record.get("source_id") or "")
-                source_url = str(record.get("source_url") or "")
-                ann = session.scalar(
-                    select(Announcement).where(
-                        Announcement.source_id == source_id,
-                        Announcement.source_url == source_url,
-                    )
-                )
-                if ann is None:
-                    result["skipped"] += 1
-                    continue
-                for t in texts:
-                    url = t.get("url", "")
-                    url_hash = t.get("url_hash", "")
-                    file_type = t.get("file_type", "")
-                    text = t.get("text", "")
-                    existing = session.scalar(
-                        select(Attachment).where(
-                            Attachment.announcement_id == ann.id,
-                            Attachment.url_hash == url_hash,
-                        )
-                    )
-                    if existing is None:
-                        session.add(Attachment(
-                            announcement_id=ann.id,
-                            source_url=url,
-                            url_hash=url_hash,
-                            file_type=file_type,
-                            extracted_text=text,
-                            text_length=len(text),
-                            extract_status="success" if text else "failed",
-                        ))
-                        result["inserted"] += 1
-                    else:
-                        existing.extracted_text = text
-                        existing.text_length = len(text)
-                        existing.extract_status = "success" if text else "failed"
                         result["updated"] += 1
         return result
 

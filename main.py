@@ -311,7 +311,6 @@ def main() -> int:
         "field_extractions": extraction_result,
         "attachments": attachment_result,
         "attachment_db": attachment_db_result,
-        "attachment_db": attachment_db_result,
         "graph": graph_result,
         "corroboration": corroboration_result,
         "media_clusters": media_clusters,

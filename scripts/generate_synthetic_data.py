@@ -23,6 +23,16 @@ from typing import Any
 
 import yaml
 
+# Callers read this program's stdout as JSON (tests/test_synthetic_data.py).
+# On Windows the child encodes stdout with the console codepage, so Chinese
+# titles came out as GBK and json.loads() failed on the caller's UTF-8 decode.
+# Pin stdout to UTF-8 so the payload is readable from any parent process.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except (AttributeError, ValueError):  # pragma: no cover - replaced stream
+        pass
+
 ROOT = Path(__file__).resolve().parents[1]
 RULES = ROOT / "config" / "category_rules.yaml"
 CATEGORIES = ROOT / "config" / "categories.yaml"

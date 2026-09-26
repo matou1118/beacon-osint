@@ -1,4 +1,4 @@
-﻿"""Content assertions for the workbench views, using streamlit's own AppTest.
+"""Content assertions for the workbench views, using streamlit's own AppTest.
 
 tests/test_view_smoke.py proves a view does not raise. That is not enough: a view
 can render an empty page and still "pass". AppTest builds the real element tree, so

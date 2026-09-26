@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 
 from .base import BaseCollector
 from .crawl4ai_adapter import crawl_and_extract_sync
-from .playwright_worker import render_page, render_pages, shutdown_renderer
+from .playwright_worker import render_page, render_pages, shutdown_renderer  # shutdown_renderer: re-export
 
 try:
     from bs4 import BeautifulSoup
@@ -213,7 +213,13 @@ class HtmlListCollector(BaseCollector):
         raise RuntimeError("Playwright now runs in a worker process; see render_page")
 
     def close(self) -> None:
-        shutdown_renderer()
+        # The warm browser is shared by every source and released at process exit
+        # (atexit in playwright_worker). Shutting it down here relaunched Chromium
+        # on every collector.close() -- 52 launches per pass -- and, under
+        # concurrency, killed the browser another source was driving. base.close()
+        # releases the httpx client this collector owns, which this override used
+        # to skip and so leaked one connection per source.
+        super().close()
 
     def _render_with_playwright(self, url: str) -> str:
         """Fetch a JS-rendered page in a worker process.
@@ -422,6 +428,15 @@ class HtmlListCollector(BaseCollector):
         landing_titles: list[str] = []
         for url in self.fetch_list():
             if limit is not None and len(records) >= limit:
+                break
+            if self.out_of_time():
+                # Budget spent: hand back what was collected instead of nothing.
+                # The batch runner used to discard timed-out sources whole, which
+                # is why a full pass returned 0 records for most sources.
+                self.errors.append({
+                    "url": url,
+                    "error": f"deadline reached after {len(records)} records, returning partial result",
+                })
                 break
             try:
                 records.append(self.fetch_detail(url))

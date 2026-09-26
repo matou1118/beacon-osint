@@ -13,8 +13,10 @@ AGENTS.md 1.7 and 3.1.2.
 """
 from __future__ import annotations
 
+import atexit
 import multiprocessing
 import os
+import threading
 import warnings
 from typing import Any
 
@@ -31,7 +33,19 @@ try:
 except Exception:
     pass
 
-DEFAULT_CHROMIUM = r"C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe"
+# CloakBrowser is tried first (see _launch), so this is only the fallback for
+# stock Playwright. All 115 registered sources point playwright_executable_path
+# at an ms-playwright build that is not installed here, so a configured path
+# that does not exist falls back to this list rather than launching nothing.
+BROWSER_CANDIDATES = (
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+)
+DEFAULT_CHROMIUM = next(
+    (path for path in BROWSER_CANDIDATES if os.path.exists(path)),
+    BROWSER_CANDIDATES[0],
+)
 
 # Under the spawn start method the child gets a fresh module namespace, so the
 # pipe has to travel as an argument rather than through module state.
@@ -58,6 +72,9 @@ def _launch(executable_path: str | None) -> Any:
     session = sync_playwright().start()
     launch: dict[str, Any] = {"headless": True}
     path = executable_path or DEFAULT_CHROMIUM
+    if not os.path.exists(path):
+        # Configured path is dead (ms-playwright not installed): use a real one.
+        path = DEFAULT_CHROMIUM
     if os.path.exists(path):
         launch["executable_path"] = path
     browser = session.chromium.launch(**launch)
@@ -267,6 +284,10 @@ class Renderer:
 
 
 _RENDERER: Renderer | None = None
+# One warm browser serves every source, so concurrent collectors must not drive
+# the same page at once. A page costs ~1s now that the redundant sleep is gone,
+# so serialising renders is cheap while static fetches stay fully parallel.
+_RENDER_LOCK = threading.Lock()
 
 
 def render_page(
@@ -279,9 +300,11 @@ def render_page(
     pages: int = 1,
 ) -> str:
     global _RENDERER
-    if _RENDERER is None:
-        _RENDERER = Renderer()
-    return _RENDERER.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)[0]
+    with _RENDER_LOCK:
+        if _RENDERER is None:
+            _RENDERER = Renderer()
+        renderer = _RENDERER
+    return renderer.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)[0]
 
 
 def render_pages(
@@ -295,13 +318,21 @@ def render_pages(
 ) -> list[str]:
     """Render up to `pages` archive pages. Needed for 1-10 year history."""
     global _RENDERER
-    if _RENDERER is None:
-        _RENDERER = Renderer()
-    return _RENDERER.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)
+    with _RENDER_LOCK:
+        if _RENDERER is None:
+            _RENDERER = Renderer()
+        renderer = _RENDERER
+    return renderer.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)
 
 
 def shutdown_renderer() -> None:
     global _RENDERER
-    if _RENDERER is not None:
-        _RENDERER.close()
-        _RENDERER = None
+    with _RENDER_LOCK:
+        if _RENDERER is not None:
+            _RENDERER.close()
+            _RENDERER = None
+
+
+# The browser is shared and deliberately outlives any single collector, so it is
+# released once when the process ends instead of on every collector.close().
+atexit.register(shutdown_renderer)

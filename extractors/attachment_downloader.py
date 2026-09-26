@@ -21,7 +21,10 @@ except ImportError:
     httpx = None
 
 try:
-    import fitz  # PyMuPDF
+    # Import the pymupdf name, not the deprecated `fitz` alias: importing `fitz`
+    # prints a deprecation warning to STDOUT, which corrupts the JSON that
+    # main.py writes to stdout and breaks every consumer that parses it.
+    import pymupdf as fitz  # PyMuPDF
 except ImportError:
     fitz = None
 
