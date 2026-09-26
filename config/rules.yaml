@@ -1,0 +1,227 @@
+version: 2
+engine: deterministic
+blazerules_compatibility: candidate
+focus_tracking:
+  enabled: true
+  match: any
+  tags:
+    - 重大项目
+    - 项目申报
+    - 项目核准
+    - 项目备案
+    - 项目批复
+    - 中央预算内投资
+    - 地方政府专项债
+    - 重点项目
+    - 开工
+    - 竣工
+    - 资金补贴
+    - 招标采购
+    - 资质许可
+    - 能源项目
+    - 产业政策
+    - 招聘信息
+    - 招生信息
+    - 民生服务
+  source_focus_levels:
+    - critical
+    - high
+    - standard
+  reason: 重点标签命中：{matched_tag}
+  source_reason: 重点来源关注：{source_name}
+  derived_fields:
+    - focus_tracked
+    - focus_tags
+corroboration:
+  enabled: true
+  min_distinct_sources: 2
+  topic_terms:
+    - 人工智能
+    - AI
+    - Agent
+    - 智能体
+    - B300
+    - GPU
+    - 芯片
+    - 半导体
+    - 算力
+    - 数据中心
+    - 机器人
+    - 新能源
+    - 光伏
+    - 储能
+    - 电池
+    - 电力
+    - 能源
+    - 低空经济
+  media_source_types:
+    - official_media
+    - mainstream_media
+    - industry_media
+  note: 交叉验证只增加可解释证据，不改变政府原始来源权威性
+media_heat:
+  weights:
+    official: 3.0
+    mainstream: 2.0
+    industry: 1.0
+  category_weights:
+    policy: 2.0
+    livelihood: 1.5
+    industry: 1.0
+  time_decay:
+    hours_24: 1.0
+    hours_48: 0.5
+    older: 0.2
+  policy_keywords: [通知, 意见, 规划, 方案, 条例, 办法, 决定, 公告]
+  livelihood_keywords: [补贴, 就业, 养老, 医疗, 教育, 住房, 消费, 社保]
+  industry_keywords: [芯片, 半导体, 新能源, 人工智能, AI, Agent, 智能体, 算力, 数据中心, B300, GPU, 机器人, 汽车, 光伏, 储能, 电池, 电力]
+  exclude_keywords: [娱乐, 明星, 八卦, 体育, 综艺, 影视]
+  cluster_window_hours: 72
+  min_sources: 2
+  simhash_distance: 2
+  min_shared_strong_terms: 1
+  encoder: deterministic_simhash
+  structbert_enabled: false
+  strong_topic_terms: [B300, GPU, 芯片, 半导体, 算力, 数据中心, 机器人, 新能源, 光伏, 储能, 电池, 电力, 低空经济]
+hard_filters:
+  - field: source.status
+    operator: eq
+    value: enabled
+  - field: source.id
+    operator: in_allowlist
+    value: config.sources
+  - field: source.type
+    operator: in
+    value:
+      - archive
+      - government_api
+       - education_resource
+       - school
+       - official_media
+       - mainstream_media
+       - industry_media
+       - media
+  - field: announcement.gov_level
+    operator: in
+    value:
+      - 国家部委
+      - 省级
+      - 市级
+      - 县级
+  - field: announcement.jurisdiction_code
+    operator: hierarchy_match
+    user_field: user.region
+  - field: announcement.category_l1
+    operator: in
+    user_field: user.categories
+  - field: announcement.validity
+    operator: eq
+    value: true
+rules:
+  - name: 国家部委-全国通用
+    conditions:
+      - field: gov_level
+        operator: eq
+        value: 国家部委
+    score: 20
+    reason: 层级匹配：国家部委
+  - name: 省级-地域匹配
+    conditions:
+      - field: gov_level
+        operator: eq
+        value: 省级
+      - field: region_province
+        operator: contains
+        value: ${user.region}
+    score: 30
+    reason:
+      - 层级匹配：{gov_level}
+      - 地域匹配：{user.region}
+  - name: 分类匹配
+    conditions:
+      - field: category_l1
+        operator: in
+        value: ${user.categories}
+    score: 30
+    reason: 分类匹配：{category_l1}
+  - name: 人群加分
+    conditions:
+      - field: target_group
+        operator: contains
+        value: ${user.target_group}
+    score: 20
+    reason: 人群匹配：{target_group}
+  - name: 行业加分
+    conditions:
+      - field: target_industry
+        operator: contains
+        value: ${user.target_industry}
+    score: 15
+    reason: 行业匹配：{target_industry}
+  - name: 关键词匹配
+    conditions:
+      - field: text
+        operator: keyword_contains
+        value: ${user.keywords}
+    score: 10
+    reason: 关键词匹配：{matched_keywords}
+  - name: 招生信息-院校类型匹配
+    conditions:
+      - field: category_l1
+        operator: eq
+        value: 招生信息
+      - field: institution_type
+        operator: contains
+        value: ${user.institution_preference}
+    score: 35
+    reason: 招生信息匹配：{institution_name}（{institution_type}）
+  - name: 招生信息-招生类型匹配
+    conditions:
+      - field: category_l1
+        operator: eq
+        value: 招生信息
+      - field: admission_type
+        operator: contains
+        value: ${user.admission_type}
+    score: 30
+    reason: 招生类型匹配：{admission_type}
+  - name: 招生信息-就业保障加分
+    conditions:
+      - field: category_l1
+        operator: eq
+        value: 招生信息
+      - field: employment_guarantee
+        operator: affirmative_contains
+        positive_terms:
+          - 明确保障
+          - 包分配
+          - 就业安排
+        negative_terms:
+          - 不保障
+          - 不承诺
+          - 原则上不安排
+    score: 20
+    reason: 就业保障：{employment_guarantee}
+  - name: 招生信息-免学费加分
+    conditions:
+      - field: category_l1
+        operator: eq
+        value: 招生信息
+      - field: tuition_info
+        operator: affirmative_contains
+        positive_terms:
+          - 免学费
+          - 免除学费
+          - 学杂费全免
+          - 公费培养
+        negative_terms:
+          - 不免学费
+          - 非公费
+          - 需缴纳学费
+    score: 15
+    reason: 学费优惠：{tuition_info}
+sort:
+  - score_desc
+  - deadline_asc
+  - publish_date_desc
+  - announcement_id_asc

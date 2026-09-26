@@ -1,0 +1,17 @@
+id: quality-fallback
+title: 采集质量回退
+description: 验证静态、Crawl4AI、robots 和 needs_review 回退。
+input:
+  prompt: |
+    某政府列表页静态解析没有详情链接，配置允许 Crawl4AI。请给出合规的验证顺序和质量判断，不能建议绕过反爬。
+expect:
+  must_contain:
+    - Crawl4AI
+    - robots
+    - needs_review
+    - 不能绕过
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["Crawl4AI", "robots", "needs_review"]

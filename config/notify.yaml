@@ -1,0 +1,13 @@
+version: 1
+email:
+  enabled: false
+  frequency: daily
+  smtp_host_env: SMTP_HOST
+  smtp_port: 465
+  smtp_user_env: SMTP_USER
+  smtp_password_env: SMTP_PASSWORD
+  from_address_env: SMTP_FROM
+  to_addresses_env: SMTP_TO
+  use_ssl: true
+  starttls: false
+  max_records_per_run: 20

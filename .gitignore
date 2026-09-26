@@ -1,0 +1,32 @@
+# 数据库与备份快照：体积大且可由采集重建
+data/*.db
+data/**/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/self_improve_backup*/
+data/resummarize_backup*
+
+# 采集产物（附件 PDF、数据集包、探测库）——可重新采集，不进版本库
+data/attachments/
+data/datasets/
+data/probes/
+
+# 一次性调试产物
+data/batch_fix.json
+data/test_attach*.json
+data/bench_sources.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 运行输出
+output/
+logs/
+*.log
+
+# 编辑器
+.idea/
+.vscode/

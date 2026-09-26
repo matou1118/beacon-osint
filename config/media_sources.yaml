@@ -1,0 +1,321 @@
+version: 1
+default_request_interval_seconds: 3
+collector_engine:
+  default_render_mode: static
+cadence_tiers:
+  every_2h:
+    interval_seconds: 7200
+  every_4h:
+    interval_seconds: 14400
+  every_6h:
+    interval_seconds: 21600
+retention_policies:
+  active:
+    days: 365
+sources:
+- id: xinhua_policy
+  name: 新华网政策频道
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: official
+  domain: www.news.cn
+  list_url: http://www.news.cn/politics/
+  url: http://www.news.cn/politics/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */2 * * *
+  cadence_tier: every_2h
+  retention_class: active
+  status: disabled
+  enabled: false
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 政策
+  - 官方媒体
+  - 民生
+  source_type: official_media
+  jurisdiction_code: '100000'
+  base_url: http://www.news.cn/politics/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 7200
+  notes: 2026-09-26 该源指向新华网时政频道(/politics/)，按 §1.6 不作为民生经济印证来源，停用。
+  archive_pages: 6
+- id: people_policy
+  name: 人民网政策
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: official
+  domain: politics.people.com.cn
+  list_url: http://politics.people.com.cn/
+  url: http://politics.people.com.cn/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */2 * * *
+  cadence_tier: every_2h
+  retention_class: active
+  status: blocked
+  enabled: false
+  check_robots: true
+  max_items: 20
+  minimum_content_chars: 80
+  tags:
+  - 政策
+  - 官方媒体
+  - 民生
+  source_type: official_media
+  jurisdiction_code: '100000'
+  base_url: http://politics.people.com.cn/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 7200
+  notes: 2026-09-25 探测失败，保持禁用：HTTP 403 for http://politics.people.com.cn/。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
+- id: gov_cn
+  name: 中国政府网·政策
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: official
+  domain: www.gov.cn
+  list_url: https://www.gov.cn/lianbo/
+  url: https://www.gov.cn/zhengce/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */2 * * *
+  cadence_tier: every_2h
+  retention_class: active
+  status: enabled
+  enabled: true
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 国务院
+  - 政策
+  - 官方
+  source_type: official_media
+  jurisdiction_code: '100000'
+  base_url: https://www.gov.cn/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 7200
+  notes: 2026-09-26 原为 /lianbo/ 要闻联播（时政），改为 /zhengce/ 政策栏目。
+  archive_pages: 6
+- id: cnenergy
+  name: 中国能源报
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: industry
+  domain: www.cnenergynews.cn
+  list_url: https://www.cnenergynews.cn/
+  url: https://www.cnenergynews.cn/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */4 * * *
+  cadence_tier: every_4h
+  retention_class: active
+  status: enabled
+  enabled: true
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 能源
+  - 新能源
+  - 政策
+  source_type: industry_media
+  jurisdiction_code: '100000'
+  base_url: https://www.cnenergynews.cn/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 14400
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  archive_pages: 6
+- id: cena
+  name: 中国电子报
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: industry
+  domain: www.cena.com.cn
+  list_url: http://www.cena.com.cn/
+  url: http://www.cena.com.cn/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */4 * * *
+  cadence_tier: every_4h
+  retention_class: active
+  status: enabled
+  enabled: true
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 芯片
+  - 半导体
+  - 电子信息
+  - 政策
+  source_type: industry_media
+  jurisdiction_code: '100000'
+  base_url: http://www.cena.com.cn/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 14400
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  archive_pages: 6
+- id: jiqizhixin
+  name: 机器之心
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: industry
+  domain: www.jiqizhixin.com
+  list_url: https://www.jiqizhixin.com/
+  url: https://www.jiqizhixin.com/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */4 * * *
+  cadence_tier: every_4h
+  retention_class: active
+  status: blocked
+  enabled: false
+  check_robots: true
+  max_items: 20
+  minimum_content_chars: 80
+  tags:
+  - AI
+  - Agent
+  - 大模型
+  - 政策
+  source_type: industry_media
+  jurisdiction_code: '100000'
+  base_url: https://www.jiqizhixin.com/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 14400
+  notes: 2026-09-25 探测失败，保持禁用：未取到记录。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
+- id: idcquan
+  name: 中国IDC圈
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: industry
+  domain: www.idcquan.com
+  list_url: https://www.idcquan.com/
+  url: https://www.idcquan.com/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */6 * * *
+  cadence_tier: every_6h
+  retention_class: active
+  status: enabled
+  enabled: true
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 算力
+  - B300
+  - 数据中心
+  - 政策
+  source_type: industry_media
+  jurisdiction_code: '100000'
+  base_url: https://www.idcquan.com/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 21600
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  archive_pages: 6
+- id: cls
+  name: 财联社
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: mainstream
+  domain: www.cls.cn
+  list_url: https://www.cls.cn/telegraph
+  url: https://www.cls.cn/telegraph
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */2 * * *
+  cadence_tier: every_2h
+  retention_class: active
+  status: blocked
+  enabled: false
+  check_robots: true
+  max_items: 20
+  minimum_content_chars: 80
+  tags:
+  - 财经
+  - 政策
+  - 产业
+  source_type: mainstream_media
+  jurisdiction_code: '100000'
+  base_url: https://www.cls.cn/telegraph
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 7200
+  notes: 2026-09-25 探测失败，保持禁用：未取到记录。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
+- id: yicai
+  name: 第一财经
+  level: national
+  gov_level: 国家级
+  type: media
+  media_type: mainstream
+  domain: www.yicai.com
+  list_url: https://www.yicai.com/news/
+  url: https://www.yicai.com/news/
+  access_method: static_html
+  parser: media_parser
+  schedule: 0 */4 * * *
+  cadence_tier: every_4h
+  retention_class: active
+  status: enabled
+  enabled: true
+  check_robots: true
+  max_items: 60
+  minimum_content_chars: 80
+  tags:
+  - 财经
+  - 政策
+  - 产业
+  source_type: mainstream_media
+  jurisdiction_code: '100000'
+  base_url: https://www.yicai.com/news/
+  owner: 项目负责人
+  auth_scope: 见 notes
+  terms_checked_at: null
+  robots_checked_at: '2026-09-25'
+  retention_days: 365
+  cadence_seconds: 14400
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  archive_pages: 6

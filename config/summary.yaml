@@ -1,0 +1,30 @@
+version: 1
+max_summary_chars: 500
+modes:
+  short:
+    target_chars: 200
+    max_chars: 300
+    use_when:
+      - 简单通知
+      - 数据点不超过 2 个
+      - 原文主题单一
+  standard:
+    target_chars: 350
+    max_chars: 400
+    use_when:
+      - 一般政策或行业通知
+      - 数据点 3–5 个
+      - 包含条件、期限或多个事项
+  detailed:
+    target_chars: 450
+    max_chars: 500
+    use_when:
+      - 补贴、专项资金、重大项目或申报通知
+      - 包含金额、申报条件、办理流程、期限、部门或项目阶段
+      - 数据点超过 5 个或存在多个并列政策事项
+selection_rules:
+  - 原文不足时允许低于目标字数，不得凑字数
+  - 关键数据、适用对象、金额、截止日期和办理条件优先于背景描述
+  - 详细模式仍不得超过 500 个中文字符
+  - summary_mode 必须随 JSON 结果返回
+  - summary_char_count 必须与实际中文字符数相符

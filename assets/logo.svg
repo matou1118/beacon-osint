@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Beacon OSINT 灯塔">
+  <title>Beacon OSINT 灯塔</title>
+  <defs>
+    <linearGradient id="beaconLamp" x1="16" y1="12.1" x2="16" y2="18.9" gradientUnits="userSpaceOnUse">
+      <stop stop-color="currentColor" stop-opacity="1"/>
+      <stop offset="1" stop-color="currentColor" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 灯塔光束（左右扇形） -->
+  <path d="M15 15.5 4.4 12.2v6.6L15 15.5Z" fill="currentColor" opacity="0.10"/>
+  <path d="M17 15.5 27.6 12.2v6.6L17 15.5Z" fill="currentColor" opacity="0.10"/>
+
+  <!-- 外层信号弧（远场） -->
+  <path d="M6.4 8.7a11.3 11.3 0 0 0 0 14.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity="0.30"/>
+  <path d="M25.6 8.7a11.3 11.3 0 0 1 0 14.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity="0.30"/>
+
+  <!-- 内层信号弧（近场） -->
+  <path d="M10 11.7a6.7 6.7 0 0 0 0 8.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity="0.60"/>
+  <path d="M22 11.7a6.7 6.7 0 0 1 0 8.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity="0.60"/>
+
+  <!-- 塔身 -->
+  <path d="M13.7 28.3 14.95 18.7h2.1L18.3 28.3Z" fill="currentColor"/>
+
+  <!-- 塔基 -->
+  <rect x="11.1" y="26.9" width="9.8" height="1.8" rx="0.9" fill="currentColor"/>
+  <rect x="8.4" y="29.9" width="15.2" height="1.2" rx="0.6" fill="currentColor" opacity="0.32"/>
+
+  <!-- 灯室与核心光点 -->
+  <circle cx="16" cy="15.5" r="3.4" fill="url(#beaconLamp)"/>
+  <circle cx="16" cy="15.5" r="1.25" fill="currentColor"/>
+</svg>

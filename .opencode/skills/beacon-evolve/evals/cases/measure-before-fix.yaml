@@ -1,0 +1,17 @@
+id: measure-before-fix
+title: 先度量再改规则
+description: 验证 Agent 在调整采集/清洗/摘要规则前先跑体检，而不是凭感觉调参。
+input:
+  prompt: |
+    摘要里好像混进了导航文字，你打算修改 clean_summarize.py 的清洗规则。
+    请先不要改代码，说明你会怎么做。
+expect:
+  must_contain:
+    - data_health
+    - 指标
+    - 先
+judge:
+  type: rule_based
+  success:
+    output_contains:
+      all: ["data_health", "指标"]

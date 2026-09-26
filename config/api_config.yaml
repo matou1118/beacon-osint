@@ -1,0 +1,30 @@
+version: 1
+providers:
+  zhejiang:
+    name: 浙江公共数据开放平台
+    auth_type: app_sign
+    status: pending_review
+    app_id_env: ZJ_OPEN_DATA_APP_ID
+    appsecret_env: ZJ_OPEN_DATA_APPSECRET
+    sign_endpoint: http://data.zjzwfw.gov.cn/jimp/sign/createsign.do
+    gateway_endpoint: https://data.zjzwfw.gov.cn/interface/gateway.do
+  guangdong:
+    name: 广东公共数据开放平台
+    auth_type: approved_dataset
+    status: pending_review
+    token_env: GD_OPEN_DATA_TOKEN
+  shanghai:
+    name: 上海公共数据开放平台
+    auth_type: developer_app
+    status: pending_review
+    app_id_env: SH_OPEN_DATA_APP_ID
+    appsecret_env: SH_OPEN_DATA_APPSECRET
+  liaoning:
+    name: 辽宁公共数据开放平台
+    auth_type: signature_token
+    status: pending_review
+    token_env: LN_OPEN_DATA_TOKEN
+security:
+  allow_unverified_endpoints: false
+  allow_anti_bot_bypass: false
+  allow_social_login: false

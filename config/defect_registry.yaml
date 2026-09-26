@@ -1,0 +1,274 @@
+version: 1
+note: |
+  缺陷登记表。每条记录一个可测量的缺陷类、它的检测方式、修复手段和验证方法。
+  scripts/self_improve.py 读这张表：体检发现某类超标 -> 取出尚未用过的修复 ->
+  应用 -> 重新测量 -> 只在指标变好时保留并标记已用。修复失败不消耗次数。
+  这样"规则进化"是可审计的尝试序列，而不是拍脑袋调参。
+  注意：本文件用编辑工具直接改，不要用 yaml.safe_dump 回写（会重排并破坏结构）。
+
+defaults:
+  regression_tolerance: 0.02
+
+defects:
+
+  - id: chrome_residue
+    metric: chrome_residue_rate
+    direction: le
+    severity: low
+    description: 清洗后仍残留页脚/面包屑/工具条文本。
+    why_low_priority: 残留是无害文本；砍得太狠会连带丢失正文（实测 31 条正文被误删）。
+    fixes:
+      - id: tighten_tail_zone
+        description: 提高 TAIL_ZONE 门槛，只截更靠后的页脚。
+        apply:
+          kind: set_constant
+          target: extractors/clean_summarize.py
+          name: TAIL_ZONE
+          value: 0.75
+      - id: add_line_rules
+        description: 为残留最多的标记补整行规则。
+        apply:
+          kind: none
+      - id: drop_orphan_prefix
+        description: 清除页脚被切断后残留的孤立前缀（如"京"）。
+        apply:
+          kind: none
+          already_implemented: true
+
+  - id: summary_compression_high
+    metric: summary_compression_high
+    direction: le
+    severity: medium
+    description: 摘要压缩比过高（>45%），等于没摘要。
+    fixes:
+      - id: lower_ceiling
+        description: 收紧压缩比上限。
+        apply:
+          kind: set_constant
+          target: extractors/summary_refine.py
+          name: COMPRESS_CEILING
+          value: 0.35
+      - id: lower_point_budget
+        description: 减少保留的要点条数。
+        apply:
+          kind: set_constant
+          target: extractors/summary_refine.py
+          name: MAX_POINTS
+          value: 5
+
+  - id: summary_compression_low
+    metric: summary_compression_low
+    direction: le
+    severity: medium
+    description: 摘要压缩比过低（<10%），信息不足以对比。
+    fixes:
+      - id: raise_floor
+        description: 提高压缩比下限，触发补充句子。
+        apply:
+          kind: set_constant
+          target: extractors/summary_refine.py
+          name: COMPRESS_FLOOR
+          value: 0.15
+      - id: raise_point_budget
+        description: 提高要点条数上限。
+        apply:
+          kind: set_constant
+          target: extractors/summary_refine.py
+          name: MAX_POINTS
+          value: 10
+
+  - id: dropped_amount
+    metric: dropped_amount
+    direction: le
+    severity: high
+    description: 正文含金额但摘要没有——对比时最关键的事实丢失。
+    fixes:
+      - id: protect_money_sentences
+        description: 金额句永不参与压缩裁剪。
+        apply:
+          kind: none
+          already_implemented: true
+
+  - id: missing_amount_signal
+    metric: amount_rate
+    direction: ge
+    severity: high
+    description: 含金额的正文比例过低，说明金额词表覆盖不足。
+    fixes:
+      - id: widen_amount_patterns
+        description: 扩充金额/时限/对象信号模式。
+        apply:
+          kind: none
+          already_implemented: true
+
+  - id: section_pages
+    metric: section_page_rate
+    direction: le
+    severity: medium
+    description: 栏目页/首页混入公告集，污染统计与对比。
+    fixes:
+      - id: widen_section_markers
+        description: 扩充栏目页标题特征（需人工确认，避免误杀真公告）。
+        apply:
+          kind: none
+
+  - id: short_bodies
+    metric: under_200_chars_rate
+    direction: le
+    severity: high
+    description: 正文过短，通常是清洗把正文当页脚切掉了。
+    fixes:
+      - id: stop_unconditional_switcher_trim
+        description: 字体切换器改为位置感知（已实施）。
+        apply:
+          kind: none
+          already_implemented: true
+
+  - id: history_gap
+    metric: history_year_coverage
+    direction: ge
+    severity: high
+    description: 近 10 年出现空档年份，时间线不完整。
+    measured: archive_pages 6→12、max_items 60→120 均无改善，说明瓶颈不在翻页深度。
+    fixes:
+      - id: raise_archive_pages
+        description: 提高每个源的归档翻页深度（已验证无改善）。
+        apply:
+          kind: scale_config
+          config: config/sources.yaml
+          key: archive_pages
+          factor: 2
+          cap: 12
+      - id: raise_max_items
+        description: 提高单源采集上限（已验证无改善）。
+        apply:
+          kind: scale_config
+          config: config/sources.yaml
+          key: max_items
+          factor: 2
+          cap: 200
+      - id: add_year_archive_sources
+        description: 登记各年度归档栏目源。
+        apply:
+          kind: none
+          requires: source_registration
+
+  - id: no_cross_level_programs
+    metric: cross_level_programs
+    direction: ge
+    severity: high
+    description: 没有同时跨年份+跨层级的专项，无法做政策对比。
+    fixes:
+      - id: expand_regional_sources
+        description: 启用更多省市源，让同一专项在多层出现。
+        apply:
+          kind: none
+          requires: source_expansion
+
+  - id: low_region_coverage
+    metric: region_coverage_rate
+    direction: ge
+    severity: medium
+    description: 记录缺少地区归属，地图与分省统计不可用。
+    fixes:
+      - id: fill_region_from_source
+        description: 采集时从源配置回填 region_province。
+        apply:
+          kind: none
+          already_implemented: true
+
+  # ── 采集环节缺陷 ──────────────────────────────────────────
+  # 采集是全链路起点：产出率低 = 后续清洗/摘要/对比全空。
+  # 这三个缺陷类把"自进化"从"清洗/摘要"扩展到"采集"。
+
+  - id: collection_yield_low
+    metric: collection_yield_rate
+    direction: ge
+    severity: high
+    description: 单源有效记录数 / 总链接数低于阈值，采集产出不足。
+    why_high_priority: 采集是全链路起点，产出率低 = 后续清洗/摘要/对比全空。
+    fixes:
+      - id: switch_to_crawl4ai
+        description: 从 static_html 切换到 crawl4ai 渲染采集。
+        apply:
+          kind: set_constant
+          target: collectors/html_list.py
+          name: DEFAULT_RENDER_MODE
+          value: "static_then_crawl4ai"
+      - id: switch_to_playwright
+        description: 从 static_html 切换到 Playwright 渲染采集。
+        apply:
+          kind: set_constant
+          target: collectors/html_list.py
+          name: DEFAULT_RENDER_MODE
+          value: "static_then_playwright"
+      - id: add_archive_sources
+        description: 按年注册归档栏目源，扩大历史覆盖。
+        apply:
+          kind: none
+          requires: source_registration
+
+  - id: attachment_pipeline_empty
+    metric: attachment_download_rate
+    direction: ge
+    severity: medium
+    description: 附件/PDF 下载通路未启用，大量政策正文在 PDF 里。
+    fixes:
+      - id: enable_download_collector
+        description: 启用 DownloadCollector，给源配 download_url。
+        apply:
+          kind: none
+          requires: source_configuration
+      - id: wire_pdf_extraction
+        description: 接通 storage/documents.py 的 OCR 到采集链路。
+        apply:
+          kind: none
+          already_implemented: true
+
+  # ── 对比环节缺陷 ──────────────────────────────────────────
+  # 对比是产品核心：覆盖率低 = 用户看不到差异。
+
+  - id: compare_coverage_low
+    metric: compare_coverage_rate
+    direction: ge
+    severity: medium
+    description: 有对比价值的记录 / 总记录数低于阈值，对比引擎产出不足。
+    fixes:
+      - id: lower_link_threshold
+        description: 降低关联确认阈值，让更多文件进入对比。
+        apply:
+          kind: set_constant
+          target: policy_relations.py
+          name: AUTO_THRESHOLD
+          value: 75
+      - id: expand_field_schema
+        description: 扩字段 schema，让更多字段可对比。
+        apply:
+          kind: none
+          requires: schema_expansion
+
+  # ── 印证环节缺陷 ──────────────────────────────────────────
+  # 印证是可信度：通过率低 = 用户不敢信。
+
+  - id: corroboration_pass_low
+    metric: corroboration_pass_rate
+    direction: ge
+    severity: medium
+    description: 通过印证的记录 / 总记录数低于阈值，交叉印证不足。
+    fixes:
+      - id: widen_fact_patterns
+        description: 扩事实模式，让更多记录可印证。
+        apply:
+          kind: none
+          requires: pattern_expansion
+      - id: lower_media_gate
+        description: 降低媒体准入门槛，让更多媒体源参与印证。
+        apply:
+          kind: none
+          requires: gate_logic_change
+          note: >-
+            门控当前是"命中事实计数"（>=2 项判 verified），不是置信度打分，
+            没有可调的阈值常量。要放宽只能改判定逻辑本身（见
+            extractors/verification_gate.py 的 VERIFY_FACT_MIN），
+            属于逻辑改动而非改常量，需人工确认口径。
+

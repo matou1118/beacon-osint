@@ -1,0 +1,70 @@
+version: 1
+status: draft
+baseline_year: 2026
+last_reviewed: null
+guidance:
+  source_ids:
+    - ndrc_gov
+  source_role: development_reform_commission
+  update_frequency: annual
+  approval_required: true
+  self_update: false
+  note: 产业焦点只能依据已审核的国家发改委年度指导/规划/行动计划更新，不能由模型自行改写
+matching:
+  fields:
+    - title
+    - content
+    - category_l1
+    - category_l2
+    - target_industry
+  match: any
+industries:
+  new_energy:
+    label: 新能源
+    tags:
+      - 新能源
+      - 光伏
+      - 风电
+      - 储能
+      - 充换电
+      - 电网
+      - 绿色低碳
+      - 氢能
+      - 电池
+  artificial_intelligence:
+    label: 人工智能
+    tags:
+      - 人工智能
+      - 大模型
+      - 算力
+      - 机器人
+      - 智能制造
+      - 数据要素
+      - AI+
+  advanced_manufacturing:
+    label: 高端制造
+    tags:
+      - 高端装备
+      - 工业母机
+      - 新材料
+      - 专精特新
+      - 产业基础
+  digital_economy:
+    label: 数字经济
+    tags:
+      - 数字经济
+      - 5G
+      - 工业互联网
+      - 信息化
+      - 数据中心
+  education:
+    label: 教育与就业
+    tags:
+      - 高职单招
+      - 招生
+      - 招聘
+      - 就业
+      - 校园招聘
+      - 职业院校
+      - 人才培养
+      - 产教融合

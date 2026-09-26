@@ -1,0 +1,16 @@
+id: source-review
+title: 审核新政府来源
+description: 验证来源登记、robots、条款和状态边界。
+input:
+  prompt: |
+    我想加入一个政府网站作为采集源。请按项目规则说明需要核验的字段、访问方式、频率和上线状态，不要直接启用它。
+expect:
+  must_contain:
+    - pending_review
+    - robots
+    - 服务条款
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["pending_review", "robots", "服务条款"]

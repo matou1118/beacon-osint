@@ -1,0 +1,42 @@
+version: 1
+enabled: true
+
+# Coverage switch. Full national sweep is slow, so collection can be narrowed to
+# the levels that matter right now. County sources stay registered; flip
+# county_enabled to true when that level becomes a focus.
+level_switch:
+  national_enabled: true
+  province_enabled: true
+  city_enabled: true
+  county_enabled: false
+  # Special Administrative Regions have no current requirement; sources stay
+  # registered so the switch can be flipped back without rework.
+  sar_enabled: false
+  # Cap per-level sources per run so a full sweep still finishes in one night.
+  # 0 means no cap.
+  province_sample: 0
+  city_sample: 0
+  county_sample: 5
+
+retry_attempts: 3
+retry_backoff_seconds: 60
+misfire_grace_time: 3600
+max_instances: 1
+coalesce: true
+failure_report_dir: data/failure_reports
+quality_dir: data/quality
+markdown_dir: data/markdown
+heatmap_output: data/heat/latest.md
+backup_dir: data/backups
+backup_retention_days: 30
+backup_hour: 2
+backup_minute: 30
+quality_hour: 23
+quality_minute: 55
+cleanup_after_run: true
+progress_snapshot: data/runtime/collect_progress.json
+progress_heartbeat_seconds: 30
+runtime_cleanup_dirs:
+  - data/tmp
+  - data/debug
+preserve_audit: true

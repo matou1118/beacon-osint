@@ -1,0 +1,3 @@
+version: 1
+enabled: true
+extractor_version: structural-v1

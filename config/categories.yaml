@@ -1,0 +1,102 @@
+version: 1
+l1:
+  新闻动态:
+    subcategories:
+      - 时政要闻
+      - 行业动态
+      - 数据播报
+      - 媒体报道
+    required: false
+  行业政策:
+    subcategories:
+      - 产业规划
+      - 行业标准
+      - 监管政策
+      - 价格政策
+    required: false
+  行业补贴:
+    subcategories:
+      - 研发补贴
+      - 技术改造补贴
+      - 人才补贴
+      - 企业扶持
+    required: false
+  公务员考试:
+    subcategories:
+      - 国考招录
+      - 省考招录
+      - 选调生招录
+    required: false
+  军队招录:
+    subcategories:
+      - 军队院校招生
+      - 军校直招
+      - 军转安置
+    required: false
+  公招信息:
+    subcategories:
+      - 事业单位招聘
+      - 基层招聘
+    required: false
+  招标信息:
+    subcategories:
+      - 工程招标
+      - 货物采购
+      - 服务采购
+      - 资质预警
+    required: false
+  商业机会:
+    subcategories:
+      - 项目申报
+      - 项目备案
+      - 招商引资
+      - 产业合作
+      - 园区招商
+      - 展会信息
+      - 许可公示
+    required: false
+  招聘信息:
+    subcategories:
+      - 招聘信息
+      - 职业培训
+      - 人才引进
+    required: false
+  活动通知:
+    subcategories:
+      - 报名通知
+      - 考试安排
+      - 公示公告
+      - 培训活动
+    required: false
+  人才政策:
+    subcategories:
+      - 人才引进
+      - 人才认定
+      - 社保政策
+      - 职业培训
+    required: false
+  养老与社区:
+    subcategories:
+      - 高龄津贴
+      - 失能补贴
+      - 老年助餐
+      - 探访关爱
+      - 适老化改造
+      - 社区活动
+      - 养老机构
+      - 长期护理保险
+    required: true
+  招生信息:
+    subcategories:
+      - 高职单招
+      - 公费定向培养
+      - 行业院校招生
+      - 职业院校招生
+      - 事业单位定向培养
+      - 招生政策解读
+    required: true
+  其他:
+    subcategories:
+      - 未分类
+      - 跨领域通知
+    required: false

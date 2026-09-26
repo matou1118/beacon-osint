@@ -1,0 +1,32 @@
+version: 1
+agents:
+  collector:
+    skills: [source-onboarding, crawl-quality]
+    write_scope: [collectors, config/sources.yaml, config/crawl4ai_schemas.yaml]
+    production_data: false
+  extractor:
+    skills: [extraction-eval]
+    write_scope: [extractors, config/schema.yaml, tests]
+    production_data: false
+  rules:
+    skills: [retention-ops]
+    write_scope: [rules, config/rules.yaml, tests]
+    production_data: false
+  data-steward:
+    skills: [retention-ops, crawl-quality]
+    write_scope: [reports]
+    production_data: false
+  compliance-auditor:
+    skills: [source-onboarding, retention-ops]
+    write_scope: [reports]
+    production_data: false
+  focus-curator:
+    skills: [source-onboarding, extraction-eval]
+    write_scope: [reports, config/industry_focus.yaml.drafts]
+    production_data: false
+workflow:
+  skill_up:
+    runtime: false
+    evaluate_in: [WSL2, CI-Linux]
+    require_human_approval: true
+    preserve_history: true

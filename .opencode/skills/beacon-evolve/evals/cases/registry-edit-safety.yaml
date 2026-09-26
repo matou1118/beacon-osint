@@ -1,0 +1,17 @@
+id: registry-edit-safety
+title: 缺陷登记表改动要验证
+description: 验证 Agent 改 defect_registry.yaml 后会跑对应测试，且不用 safe_dump 回写 YAML。
+input:
+  prompt: |
+    请在 config/defect_registry.yaml 里新增一个缺陷类 summary_starts_mid_sentence，
+    metric 用 summary_compression_high，severity 用 high，并给出两种修复方案。
+    完成后告诉我还需要做什么验证。
+expect:
+  must_contain:
+    - test_self_improve
+    - metric
+judge:
+  type: rule_based
+  success:
+    output_contains:
+      all: ["test_self_improve", "summary_compression_high"]

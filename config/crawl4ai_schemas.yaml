@@ -1,0 +1,19 @@
+version: 1
+schemas:
+  policy_list:
+    name: 政策文件列表
+    baseSelector: div.policy-list
+    fields:
+      - name: 标题
+        selector: h3
+        type: text
+      - name: 发布日期
+        selector: span.date
+        type: text
+      - name: 文号
+        selector: span.doc-number
+        type: text
+      - name: 链接
+        selector: a
+        type: attribute
+        attribute: href

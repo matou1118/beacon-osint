@@ -1,0 +1,17 @@
+id: extraction-report
+title: 招生抽取评估
+description: 验证招生字段、准确率口径和 needs_review。
+input:
+  prompt: |
+    请为招生公告抽取设计一份评估报告，区分模型原始结果和来源字段补全结果，并检查 admission_sub_category 和 institution_type。
+expect:
+  must_contain:
+    - 原始结果
+    - 来源字段
+    - admission_sub_category
+    - needs_review
+judge:
+  type: rule_based
+  success:
+    - output_contains:
+        all: ["原始结果", "来源字段", "admission_sub_category", "needs_review"]

@@ -1,0 +1,180 @@
+version: 1
+builder: extractors.gliner_extractor.build_schema
+model:
+  name: fastino/gliner2-base-v1
+  mode: local
+  license_review_required: true
+input:
+  content_type: text
+  preserve_original: true
+  empty_text: reject
+classifications:
+  gov_level:
+    values:
+      - 国家部委
+      - 省级
+      - 市级
+      - 县级
+    postprocess: source_registry
+  category_l1:
+    values:
+      - 新闻动态
+      - 财政金融
+      - 交通运输
+      - 农业农村
+      - 商务贸易
+      - 法治司法
+      - 工业制造
+      - 医疗保障
+      - 住房保障
+      - 科技创新
+      - 能源资源
+      - 市场监管
+      - 民政社会
+      - 应急安全
+      - 税收海关
+      - 国防军队
+      - 行业政策
+      - 行业补贴
+      - 公务员考试
+      - 军队招录
+      - 公招信息
+      - 招标信息
+      - 商业机会
+      - 招聘信息
+      - 活动通知
+      - 人才政策
+      - 养老与社区
+      - 招生信息
+      - 其他
+  admission_sub_category:
+    values:
+      - 高职单招
+      - 军队院校招生
+      - 公安司法院校招生
+      - 公费定向培养
+      - 行业院校招生
+      - 职业院校招生
+      - 事业单位定向培养
+      - 招生政策解读
+    applies_when:
+      category_l1: 招生信息
+    otherwise: null
+entities:
+  issuing_body:
+    description: 发布机构全称
+    nullable: false
+  region:
+    description: 公告明确覆盖的行政区划名称
+    nullable: true
+  target_group:
+    description: 公告明确适用的人群或主体
+    nullable: true
+  target_industry:
+    description: 公告明确适用的行业
+    nullable: true
+structures:
+  announcement:
+    fields:
+      - name: title
+        type: string
+        nullable: false
+        source: exact
+      - name: publish_date
+        type: string
+        format: ISO-8601
+        nullable: true
+        source: exact
+      - name: amount
+        type: string
+        nullable: true
+        source: exact
+      - name: deadline
+        type: string
+        nullable: true
+        source: exact
+      - name: conditions
+        type: string
+        nullable: true
+        source: exact
+      - name: contact
+        type: string
+        nullable: true
+        source: exact
+      - name: key_points
+        type: list
+        item_type: string
+        nullable: true
+        source: exact_spans
+        paraphrase: false
+      - name: institution_name
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+      - name: institution_type
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+      - name: admission_type
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+      - name: enrollment_count
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+      - name: tuition_info
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+      - name: employment_guarantee
+        type: string
+        nullable: true
+        source: exact
+        applies_when:
+          category_l1: 招生信息
+evidence:
+  required_for:
+    - title
+    - publish_date
+    - amount
+    - deadline
+    - key_points
+  fallback: retain_original_and_queue_for_review
+output:
+  format: json
+  user_facing_text: forbidden
+  review_field: needs_review
+  review_values: [0, 1]
+derived_fields:
+  gov_level:
+    authority: source_registry
+    model_may_infer: false
+  jurisdiction_code:
+    authority: source_registry
+    model_may_infer: false
+  focus_tracked:
+    authority: deterministic_rules
+    model_may_infer: false
+  focus_tags:
+    authority: deterministic_rules
+    model_may_infer: false
+  project_tracked:
+    authority: deterministic_rules
+    model_may_infer: false
+  project_tags:
+    authority: deterministic_rules
+    model_may_infer: false
+  project_stage:
+    authority: deterministic_rules
+    model_may_infer: false

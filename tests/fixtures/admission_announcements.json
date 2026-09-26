@@ -1,0 +1,52 @@
+[
+  {
+    "source_id": "fixture_vocational",
+    "source_url": "fixture://local/admission/vocational",
+    "title": "示例职业技术学院高职单招章程",
+    "publish_date": "2026-09-20",
+    "content": "学校发布高职单招计划和招生章程。",
+    "gov_level": "省级",
+    "region_province": "四川省",
+    "category_l1": "招生信息",
+    "admission_sub_category": "高职单招",
+    "institution_name": "示例职业技术学院",
+    "institution_type": "公办专科",
+    "admission_type": "高职单招",
+    "enrollment_count": "计划招生200人",
+    "tuition_info": "学费按公开标准执行",
+    "employment_guarantee": "学校提供就业指导，不承诺包分配"
+  },
+  {
+    "source_id": "fixture_military",
+    "source_url": "fixture://local/admission/military",
+    "title": "军队院校招生公告",
+    "publish_date": "2026-09-19",
+    "content": "公布招生计划、面试体检安排和政治考核要求。",
+    "gov_level": "国家部委",
+    "category_l1": "招生信息",
+    "admission_sub_category": "军队院校招生",
+    "institution_name": "示例军事院校",
+    "institution_type": "军队院校",
+    "admission_type": "军队院校招生",
+    "enrollment_count": "计划招生100人",
+    "tuition_info": "军队院校招生章程",
+    "employment_guarantee": "按照招生章程明确就业安排"
+  },
+  {
+    "source_id": "fixture_directed_medical",
+    "source_url": "fixture://local/admission/directed-medical",
+    "title": "农村订单定向医学生招生通知",
+    "publish_date": "2026-09-18",
+    "content": "公布定向培养类型、招生人数、培养学校和服务期要求。",
+    "gov_level": "省级",
+    "region_province": "四川省",
+    "category_l1": "招生信息",
+    "admission_sub_category": "公费定向培养",
+    "institution_name": "示例医学院",
+    "institution_type": "公办本科",
+    "admission_type": "定向培养",
+    "enrollment_count": "计划招生50人",
+    "tuition_info": "公费培养，学费按政策执行",
+    "employment_guarantee": "按定向培养协议服务期六年"
+  }
+]

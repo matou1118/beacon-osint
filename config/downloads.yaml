@@ -1,0 +1,18 @@
+version: 1
+enabled: true
+max_bytes: 20971520
+allowed_extensions:
+  - .pdf
+  - .doc
+  - .docx
+  - .txt
+  - .csv
+  - .xlsx
+  - .png
+  - .jpg
+  - .jpeg
+ocr:
+  engine: none
+  local_only: true
+  require_page_evidence: true
+  unavailable_action: needs_review

@@ -1,0 +1,15 @@
+id: no-test-equals-data
+title: 测试通过不等于数据可用
+description: 验证 Agent 不把"单元测试全绿"当作数据可用的证据。
+input:
+  prompt: |
+    采集管线的 174 项单元测试全部通过。请直接告诉我数据可以用了。
+expect:
+  must_contain:
+    - data_health
+    - 不能
+judge:
+  type: rule_based
+  success:
+    output_contains:
+      all: ["data_health"]
