@@ -9,8 +9,10 @@
 import sys
 import time
 import argparse
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, '.')
@@ -18,7 +20,25 @@ sys.path.insert(0, '.')
 from main import load_sources, collector_for, enrich_records, load_rules
 from rules.corroboration import corroborate_records
 from storage.db import Database
-from datetime import datetime, timezone
+
+ROUNDS_LOG = Path('data/rounds.jsonl')
+
+
+def say(message: str) -> None:
+    """Print and flush immediately.
+
+    A multi-hour run writes to a redirected log; block buffering hid every
+    progress line until the buffer filled, so a stalled run looked like silence.
+    """
+    print(message, flush=True)
+
+
+def record_round(summary: dict) -> None:
+    """Append one line per round so throughput can be reported later."""
+    summary["at"] = datetime.now(timezone.utc).isoformat()
+    ROUNDS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with ROUNDS_LOG.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(summary, ensure_ascii=False) + "\n")
 
 def collect_source_with_timeout(source, limit, timeout_sec=90):
     """采集单个源，超时返回空。"""
@@ -73,18 +93,10 @@ def collect_one(source, limit, timeout_sec, now, database):
     return sid, records, error, elapsed
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--limit', type=int, default=10)
-    parser.add_argument('--timeout', type=int, default=90, help='per-source budget seconds')
-    parser.add_argument('--sources', type=str, default='config/sources.yaml')
-    parser.add_argument('--workers', type=int, default=6, help='sources collected in parallel')
-    parser.add_argument('--force', action='store_true', help='ignore next-due time')
-    args = parser.parse_args()
-
-    sources = load_sources(args.sources)
+def run_round(args, sources, round_no, total_rounds):
+    """One full pass over the due sources. Returns a summary dict."""
     workers = max(1, min(args.workers, len(sources) or 1))
-    print(f"总源数: {len(sources)}, limit={args.limit}, budget={args.timeout}s/source, workers={workers}")
+    prefix = f"[轮 {round_no}/{total_rounds}] " if total_rounds > 1 else ""
 
     all_records = []
     success = 0
@@ -97,19 +109,33 @@ def main():
 
     # due 检查留在主线程串行做：它是纯读，且要在派发前决定谁参与本轮。
     todo = []
+    not_enabled = 0
     for source in sources:
         sid = source.get('id', '')
+        # --force only overrides the next-due time, never the registry status.
+        # Without this the pass walked all 145 registered sources: the 57 marked
+        # blocked and 36 pending_reprobe were attempted every round, so most of
+        # the concurrency budget went to sources that cannot succeed.
+        if not args.all_statuses and not (source.get('status') == 'enabled' and source.get('enabled', True)):
+            not_enabled += 1
+            continue
         if not args.force and not database.source_due(sid, now):
             skipped += 1
             continue
         todo.append(source)
 
+    if not_enabled:
+        say(prefix + f"按登记表跳过 {not_enabled} 个非 enabled 源"
+                     f"（加 --all-statuses 可一并尝试）")
     if not todo:
-        print("没有到期的源。用 --force 可以忽略调度时间强制采集。")
+        say(prefix + "没有到期的源。用 --force 可以忽略调度时间强制采集。")
         database.close()
-        return 0
+        return {"round": round_no, "todo": 0, "success": 0, "failed": 0,
+                "skipped": skipped, "records": 0, "wall_seconds": 0.0,
+                "inserted": 0, "updated": 0, "unchanged": 0}
 
-    print(f"本轮到期 {len(todo)} 个源，并发 {workers} 路\n")
+    say(prefix + f"总源数 {len(sources)}，本轮到期 {len(todo)}，并发 {workers} 路，"
+                 f"每源预算 {args.timeout}s，limit={args.limit}")
     started = time.time()
 
     def run(source):
@@ -133,48 +159,94 @@ def main():
                 sid, _src, enriched, error, elapsed = future.result()
             except Exception as exc:
                 failed += 1
-                print(f"[{done}/{len(todo)}] {source.get('id','')} ({name}) EXC: {exc}")
+                say(prefix + f"[{done}/{len(todo)}] {source.get('id','')} ({name}) EXC: {exc}")
                 continue
 
             if enriched:
                 success += 1
-                print(f"[{done}/{len(todo)}] {sid} ({name}) OK {len(enriched)}条 ({elapsed:.0f}s)")
+                say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) OK {len(enriched)}条 ({elapsed:.0f}s)")
                 all_records.extend(enriched)
                 source_stats.append((sid, len(enriched), elapsed))
             elif error:
                 failed += 1
-                print(f"[{done}/{len(todo)}] {sid} ({name}) FAIL ({elapsed:.0f}s): {error[:70]}")
+                say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) FAIL ({elapsed:.0f}s): {error[:70]}")
             else:
                 skipped += 1
-                print(f"[{done}/{len(todo)}] {sid} ({name}) SKIP ({elapsed:.0f}s)")
+                say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) SKIP ({elapsed:.0f}s)")
 
     wall = time.time() - started
-    # 批量入库
-    print(f"\n{'='*60}")
-    print(f"采集完成: success={success}, failed={failed}, skipped={skipped}")
-    print(f"总记录数: {len(all_records)}")
-    print(f"墙钟耗时: {wall/60:.1f} 分钟（串行约需 {sum(s[2] for s in source_stats)/60:.0f} 分钟）")
-    if source_stats:
-        rate = len(all_records) / wall * 60 if wall else 0
-        print(f"吞吐: {rate:.1f} 条/分钟")
+    serial_minutes = sum(s[2] for s in source_stats) / 60
+    say(prefix + "-" * 52)
+    say(prefix + f"本轮 success={success} failed={failed} skipped={skipped}，"
+                 f"取回 {len(all_records)} 条")
+    say(prefix + f"墙钟 {wall/60:.1f} 分钟（串行需 {serial_minutes:.0f} 分钟，"
+                 f"加速 {serial_minutes/max(wall/60, 0.01):.1f}x）")
+    if wall:
+        say(prefix + f"吞吐 {len(all_records)/wall*60:.1f} 条/分钟")
 
+    storage = {"inserted": 0, "updated": 0, "unchanged": 0}
     if all_records:
-        # 印证
         rules = load_rules('config/rules.yaml')
         all_records = corroborate_records(all_records, rules)
-
-        # 入库
-        storage_result = database.upsert_announcements(all_records)
+        storage = database.upsert_announcements(all_records)
         extraction_result = database.save_field_extractions(all_records)
-        print(f"入库: {storage_result}")
-        print(f"字段抽取: {extraction_result}")
+        say(prefix + f"入库 {storage}")
+        say(prefix + f"字段抽取 {extraction_result}")
 
     database.close()
-    print(f"\n最终 announcements 数:")
+    summary = {
+        "round": round_no,
+        "todo": len(todo),
+        "success": success,
+        "failed": failed,
+        "skipped": skipped,
+        "records": len(all_records),
+        "wall_seconds": round(wall, 1),
+        "records_per_minute": round(len(all_records) / wall * 60, 1) if wall else 0.0,
+        "inserted": storage.get("inserted", 0),
+        "updated": storage.get("updated", 0),
+        "unchanged": storage.get("unchanged", 0),
+    }
+    record_round(summary)
+    return summary
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--limit', type=int, default=10)
+    parser.add_argument('--timeout', type=int, default=90, help='per-source budget seconds')
+    parser.add_argument('--sources', type=str, default='config/sources.yaml')
+    parser.add_argument('--workers', type=int, default=6, help='sources collected in parallel')
+    parser.add_argument('--force', action='store_true', help='ignore next-due time')
+    parser.add_argument('--all-statuses', action='store_true',
+                        help='also attempt blocked / pending_reprobe sources')
+    parser.add_argument('--rounds', type=int, default=1, help='repeat the pass N times')
+    parser.add_argument('--pause', type=int, default=0, help='seconds to wait between rounds')
+    args = parser.parse_args()
+
+    sources = load_sources(args.sources)
+    say(f"源总数 {len(sources)} | limit={args.limit} | 每源预算 {args.timeout}s | "
+        f"并发 {args.workers} | 轮数 {args.rounds}")
+
+    for round_no in range(1, max(1, args.rounds) + 1):
+        started_at = datetime.now(timezone.utc).isoformat()
+        say("=" * 66)
+        try:
+            run_round(args, sources, round_no, max(1, args.rounds))
+        except Exception as exc:  # noqa: BLE001 - an overnight run must survive a bad round
+            say(f"轮 {round_no} 异常中止: {type(exc).__name__}: {exc}")
+            import traceback
+            say(traceback.format_exc())
+        if round_no < max(1, args.rounds) and args.pause:
+            say(f"轮间等待 {args.pause}s ...")
+            time.sleep(args.pause)
+
+    say("=" * 66)
+    say(f"全部轮次结束，{datetime.now(timezone.utc).isoformat()}")
     import sqlite3
     c = sqlite3.connect('data/beacon.db').cursor()
     c.execute('SELECT COUNT(*) FROM announcements')
-    print(f"  {c.fetchone()[0]}")
+    say(f"announcements 总数: {c.fetchone()[0]}")
 
 
 if __name__ == '__main__':
