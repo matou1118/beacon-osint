@@ -22,6 +22,7 @@ import json
 import re
 import shutil
 import sys
+import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,13 +87,24 @@ def used_fix_ids() -> set[str]:
 
 
 def measure() -> dict[str, Any]:
-    """Full metric panel. Imported fresh so constant edits take effect."""
-    for name in [m for m in list(sys.modules) if m.startswith(("extractors", "scripts.data_health"))]:
+    """Full metric panel. Imported fresh so constant edits take effect.
+
+    data_health is imported under its bare name (scripts/ is on sys.path), so
+    "scripts.data_health" never appears in sys.modules. Purging only that
+    spelling left the module cached, every before/after pair measured the same
+    code, and no fix could ever be kept -- the log shows applied fixes with
+    identical before/after values. Purge the name that is actually used.
+    """
+    stale = [
+        name
+        for name in list(sys.modules)
+        if name == "data_health" or name.startswith(("extractors", "scripts.data_health"))
+    ]
+    for name in stale:
         del sys.modules[name]
     import data_health
 
-    metrics = data_health.measure()
-    return metrics
+    return dict(data_health.measure())
 
 
 def failing(metrics: dict[str, Any], registry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -135,6 +147,26 @@ def _bound(registry: dict[str, Any], metric: str) -> tuple[float, str]:
     return THRESHOLDS.get(metric, (0.0, "ge"))
 
 
+def is_regression(
+    metric: str,
+    before: float,
+    after: float,
+    tolerance: float = 0.02,
+) -> bool:
+    """Did this metric get worse? Judged against its own direction.
+
+    Direction matters: 8 of the health metrics are "le" (lower is better), so
+    treating every drop as a regression flagged real improvements -- a
+    chrome_residue_rate fall from 0.6 to 0.4 read as a failure -- and reverted
+    them. Metrics with no declared direction default to "ge" (higher is better),
+    which is how the panel has always read them.
+    """
+    _limit, direction = _bound({}, metric)
+    if direction == "le":
+        return after > before + tolerance
+    return after < before - tolerance
+
+
 def apply_fix(fix: dict[str, Any]) -> tuple[bool, str]:
     """Apply one fix in place. Returns (applied, note)."""
     spec = fix.get("apply") or {}
@@ -143,6 +175,11 @@ def apply_fix(fix: dict[str, Any]) -> tuple[bool, str]:
         return False, str(spec.get("already_implemented") and "已在代码中实施" or "无可自动应用的修改")
 
     BACKUP.mkdir(parents=True, exist_ok=True)
+    # Start from an empty snapshot: revert() restores whatever is in here, so
+    # leftovers from earlier runs would silently roll back unrelated later work.
+    for stale in BACKUP.glob("*"):
+        if stale.is_file():
+            stale.unlink()
     targets: list[Path] = []
     if kind in ("set_constant", "append_line_rule"):
         targets = [ROOT / str(spec["target"])]
@@ -152,6 +189,17 @@ def apply_fix(fix: dict[str, Any]) -> tuple[bool, str]:
         return False, "目标文件不存在"
     for target in targets:
         shutil.copy2(target, BACKUP / target.name)
+    # Record where each snapshot came from. Backups are stored by basename, and
+    # guessing the directory at revert time silently skipped files that live
+    # outside collectors/ extractors/ config/ -- policy_relations.py sits at the
+    # repo root, so its "reverted" edits were never actually rolled back.
+    (BACKUP / "manifest.json").write_text(
+        json.dumps(
+            {t.name: t.relative_to(ROOT).as_posix() for t in targets},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
     try:
         if kind == "set_constant":
@@ -169,39 +217,131 @@ def apply_fix(fix: dict[str, Any]) -> tuple[bool, str]:
             rule = str(spec["rule"])
             if rule in text:
                 return False, "规则已存在"
-            marker = r"^(\s*r\"\^\(\?:网站地图"
             if not re.search(r"CHROME_PATTERNS\s*=\s*\(", text):
                 return False, "未找到 CHROME_PATTERNS"
-            text = re.sub(r"(\n\s*r\"\^扫描二维码)", rf'\n    {rule},\\1', text, count=1)
-            target.write_text(text, encoding="utf-8")
+            updated, count = re.subn(
+                r"(\n\s*r\"\^扫描二维码)", rf'\n    {rule},\\1', text, count=1
+            )
+            if not count:
+                # The anchor line moved or was reworded. re.sub would have
+                # returned the text unchanged while this reported success, so the
+                # fix looked applied and the measurement then decided nothing had
+                # changed. Say so instead of writing the file back verbatim.
+                return False, "未找到插入锚点 r\"^扫描二维码，规则未添加"
+            target.write_text(updated, encoding="utf-8")
             return True, f"新增行规则 {rule[:40]}"
         if kind == "scale_config":
             target = targets[0]
-            config = yaml.safe_load(target.read_text(encoding="utf-8"))
             key, factor, cap = str(spec["key"]), int(spec.get("factor", 2)), int(spec.get("cap", 10**6))
-            changed = 0
-            for source in config.get("sources") or []:
-                if not (source.get("status") == "enabled" and source.get("enabled")):
-                    continue
-                current = source.get(key)
-                if not isinstance(current, int):
-                    continue
-                source[key] = min(cap, max(1, current * factor))
-                changed += 1
-            target.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False, width=10**6), encoding="utf-8")
+            text = target.read_text(encoding="utf-8")
+            new_text, changed = _scale_config_text(text, key, factor, cap)
+            if not changed:
+                return False, f"没有可缩放的 {key}"
+            target.write_text(new_text, encoding="utf-8")
             return True, f"{key} ×{factor}（上限 {cap}），影响 {changed} 个源"
     except Exception as exc:  # noqa: BLE001
         return False, f"应用失败: {type(exc).__name__}: {exc}"
     return False, f"未支持的修复类型 {kind}"
 
 
+def _source_blocks(text: str) -> list[tuple[int, int, str]]:
+    """Line ranges of each list item under `sources:`, with that item's id."""
+    lines = text.splitlines()
+    starts: list[tuple[int, str]] = []
+    in_sources = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if re.match(r"^sources\s*:", stripped):
+            in_sources = True
+            continue
+        if in_sources:
+            # A new top-level key ends the sources block.
+            if stripped and not stripped.startswith(("-", "#")) and re.match(r"^[A-Za-z_]", stripped):
+                in_sources = False
+                continue
+            item = re.match(r"^(\s*)-\s+(.*)$", line)
+            if item:
+                tail = item.group(2)
+                identifier = re.match(r"""id\s*:\s*["']?([^"'\s#]+)""", tail)
+                starts.append((index, identifier.group(1) if identifier else ""))
+    blocks: list[tuple[int, int, str]] = []
+    for order, (start, identifier) in enumerate(starts):
+        end = starts[order + 1][0] if order + 1 < len(starts) else len(lines)
+        blocks.append((start, end, identifier))
+    return blocks
+
+
+def _scale_config_text(text: str, key: str, factor: int, cap: int) -> tuple[str, int]:
+    """Multiply an integer field on enabled sources, editing only those lines.
+
+    yaml.safe_dump would round-trip the whole 172KB hand-maintained file and drop
+    every comment -- config/defect_registry.yaml explicitly forbids rewriting it
+    that way, and sources.yaml had already lost all of its comments once. This
+    rewrites just the matching `key: N` lines and leaves every other byte alone.
+    """
+    enabled_ids: set[str] = set()
+    for start, end, identifier in _source_blocks(text):
+        block = text.splitlines()[start:end]
+        status = re.search(r"""^\s*status\s*:\s*["']?([\w-]+)""", "\n".join(block), re.M)
+        flag = re.search(r"""^\s*enabled\s*:\s*(true|false)""", "\n".join(block), re.M)
+        if status and status.group(1) == "enabled" and flag and flag.group(1) == "true":
+            enabled_ids.add(identifier)
+
+    if not enabled_ids:
+        return text, 0
+
+    lines = text.splitlines(keepends=True)
+    pattern = re.compile(rf"^(\s*){re.escape(key)}\s*:\s*(\d+)\s*$")
+    changed = 0
+    for start, end, identifier in _source_blocks(text):
+        if identifier not in enabled_ids:
+            continue
+        for offset in range(start, min(end, len(lines))):
+            match = pattern.match(lines[offset].rstrip("\r\n"))
+            if not match:
+                continue
+            current = int(match.group(2))
+            updated = min(cap, max(1, current * factor))
+            if updated == current:
+                continue
+            newline = "\r\n" if lines[offset].endswith("\r\n") else "\n"
+            lines[offset] = f"{match.group(1)}{key}: {updated}{newline}"
+            changed += 1
+    return "".join(lines), changed
+
+
 def revert() -> None:
+    """Restore the files this step snapshotted, to their original locations.
+
+    Uses the manifest written by apply_fix so a file is put back where it came
+    from. The old directory search (collectors/ then extractors/ then config/)
+    found nothing for repo-root modules and skipped the restore entirely, which
+    left un-reverted edits in the tree while the log claimed they were reverted.
+    """
+    manifest_path = BACKUP / "manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except ValueError:
+            manifest = {}
+        for name, relative in manifest.items():
+            backup = BACKUP / name
+            target = ROOT / str(relative)
+            if backup.exists() and target.parent.exists():
+                shutil.copy2(backup, target)
+        return
+
+    # No manifest (snapshot from an older run): fall back to the directory search.
     for backup in BACKUP.glob("*"):
+        if not backup.is_file() or backup.name == "manifest.json":
+            continue
         target = ROOT / "collectors" / backup.name
         if not target.exists():
             target = ROOT / "extractors" / backup.name
         if not target.exists():
             target = ROOT / "config" / backup.name
+        if not target.exists():
+            target = ROOT / backup.name
         if target.exists():
             shutil.copy2(backup, target)
 
@@ -220,11 +360,6 @@ def record(step: Step) -> None:
             "after": step.after,
             "notes": step.notes,
         }, ensure_ascii=False) + "\n")
-
-
-# ── discover_fix：从失败样本中发现新修复候选 ──────────────────
-# 自动发现的修复必须先过人工审核，否则会污染进化历史。
-# 审核通过后手工加入 defect_registry.yaml，不会自动写入。
 
 
 # ── discover_fix：从失败样本中发现新修复候选 ──────────────────
@@ -299,7 +434,7 @@ def discover_fix(defect_id: str, metric: str, failing_samples: list[dict[str, An
         patterns = _extract_chrome_patterns(failing_samples)
         for pattern in patterns:
             candidates.append({
-                "id": f"auto_chrome_{hash(pattern) & 0xFFFFFF:06x}",
+                "id": f"auto_chrome_{zlib.crc32(pattern.encode('utf-8')) & 0xFFFFFF:06x}",
                 "description": f"自动发现残留模式：{pattern}",
                 "require_human_approval": True,
                 "apply": {
@@ -314,7 +449,7 @@ def discover_fix(defect_id: str, metric: str, failing_samples: list[dict[str, An
         amount_patterns = _extract_amount_patterns(failing_samples)
         for pattern in amount_patterns:
             candidates.append({
-                "id": f"auto_amount_{hash(pattern) & 0xFFFFFF:06x}",
+                "id": f"auto_amount_{zlib.crc32(pattern.encode('utf-8')) & 0xFFFFFF:06x}",
                 "description": f"自动发现金额模式：{pattern}",
                 "require_human_approval": True,
                 "apply": {
@@ -413,7 +548,9 @@ def iterate(metrics: dict[str, Any], registry: dict[str, Any]) -> Step | None:
             before_value = metrics.get(key)
             if not isinstance(before_value, (int, float)):
                 continue
-            if value < before_value - tolerance and key not in ("total",):
+            if key in ("total",):
+                continue
+            if is_regression(key, float(before_value), float(value), tolerance):
                 regressions.append(f"{key} {before_value}→{value}")
         direction = item.get("bound", "ge").split()[0]
         improved = step.after < step.before if direction == "le" else step.after > step.before
