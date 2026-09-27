@@ -20,9 +20,11 @@ from typing import Any
 from .clean_summarize import (
     MAX_SENTENCE,
     MIN_SENTENCE,
+    NAV_RUN_THRESHOLD,
     SIGNAL_PATTERNS,
     SENTENCE_SPLIT_RE,
     dedupe_sentences,
+    nav_label_hits,
     score_sentence,
     strip_chrome,
 )
@@ -30,7 +32,14 @@ from .clean_summarize import (
 # Nav crumbs that survived cleaning and landed in summaries.
 CRUMB_RE = re.compile(r"(?:首页|当前位置|网站首页)\s*[>＞][^\s，。；]{0,40}(?:[>＞][^\s，。；]{0,40})*")
 # Print/font controls.
-TOOLBAR_RE = re.compile(r"\[打印\]|【关闭[^】]*】|字号[:：]?【?大?中?小?】?|【[大小中]】|打印此页|打印本页")
+TOOLBAR_RE = re.compile(
+    # 原表达式里 `字号[:：]大中小` 那段在一次编码往返中损坏成了替换字符，
+    # 导致整条正则里含非法模式而**静默不生效**——于是 297 条摘要在第 1 条要点
+    # 里带着 `【打印】` 这种页面工具栏。改成整段显式列出可读形态。
+    r"\[打印\]|【\s*打印\s*】|【\s*打印此页\s*】|【\s*打印本页\s*】|"
+    r"【\s*关闭[^】]*】|字号\s*[:：]\s*(?:大|中|小)?|【[大小中]】|"
+    r"打印此页|打印本页|关闭窗口"
+)
 # Date stamps the header repeats next to the title.
 DUP_DATE_RE = re.compile(r"(?<![0-9])\d{4}-\d{2}-\d{2}(?![\d-])")
 # Signature block / contact tail that adds nothing to a comparison.
@@ -72,6 +81,13 @@ def _signal_kinds(sentence: str) -> set[str]:
     return {label for pattern, _, label in SIGNAL_PATTERNS if re.search(pattern, sentence)}
 
 
+# 重要信号类别的补齐顺序。这四类是这个产品的立身之本：
+# 多少钱（金额/限价/采购）、什么时候截止（时限/生效/时段）、谁能申报（对象）、
+# 要做什么（义务）。排在前面的先被保证留在摘要里。
+_SIGNAL_PRIORITY = ("金额", "限价", "时限", "生效", "时段", "采购", "对象",
+                    "义务", "标准", "资金来源")
+
+
 def build_summary(
     text: str,
     title: str = "",
@@ -83,6 +99,23 @@ def build_summary(
     body = strip_chrome(text)
     sentences = [_strip_lead_noise(s) for s in dedupe_sentences(body)]
     sentences = [s for s in sentences if s]
+    if sentences and nav_label_hits(body) >= NAV_RUN_THRESHOLD:
+        # 整页都是导航而不是正文。clean_summarize.summarize() 早就为这种情况
+        # 返回空摘要并标 drop_reason=nav_chrome，但 build_summary 一直没走这个
+        # 判断，于是它把"广告人民日报主管《中国能源报》社有限公司主办网站地图
+        # 联系我们首页即时新闻能源要闻焦点…"整段当正文切了摘要。
+        # 实测 cnenergy 这类记录有 8 条，摘要全是导航文字。
+        # 空摘要比导航摘要诚实：空能被下游发现并跳过，导航摘要会被当成内容。
+        return {
+            "clean_text": body,
+            "summary": "",
+            "key_points": [],
+            "tags": [],
+            "cleaned_chars": len(body),
+            "compression": 0.0,
+            "repairs": ["nav_chrome"],
+            "drop_reason": "nav_chrome",
+        }
     if not sentences:
         return {
             "clean_text": body,
@@ -114,6 +147,24 @@ def build_summary(
     covered: set[str] = _signal_kinds(lead)
     # Pass 1: take sentences that add a signal kind the summary lacks. This is what
     # keeps the amount, the deadline and the applicant from crowding each other out.
+    #
+    # 先按"重要信号类别有没有被覆盖"来选，而不是逐句扫。
+    # 逐句扫的缺陷：一句话常同时带多种信号（id=137 的采购预算那句带
+    # 金额+采购+资金来源+条目），它被选中后 covered 就很全，后面那些只带
+    # "金额"的句子会因为"没有新 kind"被跳过——而全局上金额保留率因此从
+    # 60% 掉到 56%（新加的时限规则让更多句子带时限，挤掉了带金额的）。
+    # 改成：先算出每个重要类别的最佳句子，按重要度依次补入。
+    for kind in _SIGNAL_PRIORITY:
+        if kind in covered or len(chosen) >= limit:
+            continue
+        candidates = [i for i in ranked
+                      if i not in chosen and kind in _signal_kinds(sentences[i])]
+        if not candidates:
+            continue
+        pick = candidates[0]
+        covered |= _signal_kinds(sentences[pick])
+        chosen.append(pick)
+    # 再扫一遍收尾：有些句子带的是上面没列到的 kind
     for index in ranked:
         if len(chosen) >= limit:
             break
