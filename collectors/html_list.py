@@ -162,6 +162,49 @@ class HtmlListCollector(BaseCollector):
     # 阈值 8 来自拿库里 1762 条真实标题回归的分界：带后缀的栏目名最长 8 字。
     # 改动阈值或去掉后缀前提，必须重跑 scripts/guard_regression.py。
     SECTION_CORE_MAX_CHARS = 8
+    # 栏目页之外的"根本不是公告"的页面。用 URL 判，不看标题——
+    # 实测 sc_ny 的 http://nynct.sc.gov.cn/wza/（无障碍声明页）标题整页乱码
+    # （UTF-8 字节被按 latin-1 读），任何标题规则都对它无能为力，而 /wza/
+    # 正是政务站无障碍栏目的固定路径。
+    NON_DOC_URLS = re.compile(
+        r"/(?:wza|wzgao|barrier_free|accessibility)/?"
+        r"|/(?:copyright|disclaimer|statement)/?"
+        r"|/site(?:map|map)/?$", re.I)
+    # 版权/免责声明/网站声明这类页面。标题形态很固定，风险低：真公告不会以
+    # "…官网版权与免责声明"为题。实测 sc_ny 收过一条 2018 年的
+    # 「四川省农业农村厅官网版权与免责声明」。
+    NON_DOC_TITLE = re.compile(
+        r"版权(?:声明|归属)|免责声明|网站声明|网站声明|使用条款|隐私(?:政策|声明)"
+        r"|网站地图|无障碍(?:浏览|说明|声明|服务)?(?:页|版)?$")
+    # 列表页的形态判据：正文里挤着多条"日期 + 标题"。实测 sn_fgw 收过两条
+    # 标题就叫「通知公告」的栏目页，正文分别是
+    #   「首页 > 新闻中心 > 通知公告 新闻中心 通知公告 焦点新闻 … 2026-09-22 …」
+    #   「- 2026-09-21 关于…公示 - 2026-09-18 关于…公告 - 2026-09-15 …」
+    # 这类页面标题只有栏目名（4 字），而项目契约要求放行「工作动态」「信息公开」
+    # 这类 4 字真标题，所以不能只看标题长度，必须看正文是不是列表。
+    LISTING_MIN_DATES = 3
+    LISTING_DATE = re.compile(r"(?:19|20)\d{2}\s*[-/年.]\s*\d{1,2}\s*[-/月.]\s*\d{1,2}")
+    # 列表页与真公告的真正差别，不是"有几个日期"，而是**日期后面紧不紧跟标题**。
+    #
+    # 踩过的坑：第一版只数日期个数 >=3，结果误伤了两类真公告——
+    #   「浙江省成品油价格调整」正文里就有 2026年9月4日/9月1日/9月8日 三处
+    #   「创业培训讲师选评公示」正文引用了多个文号日期
+    # 真公告本来就会有多个完整日期（印发日期、执行期限、引用文号）。列表页则是
+    # 「日期 + 一行标题」这样反复排列。所以判据必须是"日期后面跟着一段像标题的
+    # 文字"：从日期往后 8-40 字，且这段里不出现句末标点（出现了就是正文句子，
+    # 不是标题）。
+    LISTING_ENTRY = re.compile(
+        r"(?:19|20)\d{2}\s*[-/年.]\s*\d{1,2}\s*[-/月.]\s*\d{1,2}"
+        r"[^\n。！？；]{0,6}"          # 日期与标题之间通常只有空白或 "- "
+        r"[^\n。！？；]{8,40}")
+    LISTING_MIN_ENTRIES = 3
+    # 真正的公告标题几乎都带这些形状。"通知公告"这种**不带**它们——
+    # 它就是把两个公文词并排当栏目名用，所以不能靠"含公文动词"来排除。
+    ANNOUNCE_SHAPE = re.compile(
+        r"关于|第[一二三四五六七八九十\d]+|年度|批次|"
+        r"的(?:通知|公告|公示|通告|批复|决定|函|意见|通报)|"
+        r"印发|发布|征集|申报|遴选|评选|认定|中标|成交|废止|"
+        r"办法|条例|规定|细则|方案|规划|名单|结果")
 
     def _strip_site_suffix(self, title: str) -> str:
         """剥掉尾部站点名，返回标题主体。切不出就原样返回。"""
@@ -175,6 +218,8 @@ class HtmlListCollector(BaseCollector):
         value = re.sub(r"[\s　_|-]+", "", title or "")
         if not value:
             return False
+        if self.NON_DOC_TITLE.search(value):
+            return True
         if value in self.SECTION_TITLE_EXACT:
             return True
         if any(re.sub(r"[\s　_|-]+", "", marker) in value for marker in self.SECTION_TITLE_MARKERS):
@@ -228,6 +273,35 @@ class HtmlListCollector(BaseCollector):
         extra = self.source.get("navigation_segments") or []
         return bool(set(segments) & {str(segment).lower() for segment in extra})
 
+    def _looks_like_listing(self, title: str, content: str) -> bool:
+        """正文是列表（多条"日期 + 标题"）且标题就是个栏目名。
+
+        为什么不能只看标题长度：项目契约 tests/test_collectors.py 里的
+        test_real_announcements_are_not_rejected 明确要求放行「工作动态」
+        「信息公开」这类 4 字真标题，真实公告的标题确实可以很短。
+
+        为什么不能只看日期数量：真公告正文里也会出现多个日期（印发日期、
+        执行期限、引用文号日期）。所以必须两个条件同时成立——标题不是公告的
+        形状，且正文挤着多条日期。
+
+        也不能要求"标题必须是已知栏目名"：最早那版这么写，结果「通知公告」
+        根本不在 SECTION_TITLE_MARKERS 里，判据自己把自己拦了。改成只看形态。
+
+        公告形状用 ANNOUNCE_SHAPE 而不是 SECTION_NO_DOC_ACTION：后者认的是
+        「的通知」「的公告」这种带"的"的形状，而「通知公告」正好不含——
+        它就是把两个公文词并排当栏目名用。
+
+        实测 sn_fgw 收过两条这样的栏目页，标题都叫「通知公告」（4 字）：
+          「首页 > 新闻中心 > 通知公告 新闻中心 通知公告 焦点新闻 … 2026-09-22 …」
+          「- 2026-09-21 关于…公示 - 2026-09-18 关于…公告 - 2026-09-15 …」
+        """
+        core = re.sub(r"[\s　_|-]+", "", self._strip_site_suffix(title))
+        if not core or len(core) > 12:
+            return False
+        if self.ANNOUNCE_SHAPE.search(title or ""):
+            return False   # 标题是公告的形状，放行
+        return len(self.LISTING_ENTRY.findall(content or "")) >= self.LISTING_MIN_ENTRIES
+
     def _link_allowed(self, url: str) -> bool:
         parsed = urlparse(url)
         path = parsed.path.lower()
@@ -236,6 +310,12 @@ class HtmlListCollector(BaseCollector):
         if self._navigation_like(url):
             return False
         if path in {"", "/"} or path.endswith(("/index.htm", "/index.html")):
+            return False
+        # 无障碍/版权/网站地图这类页面根本不是公告，在这里就拦掉。
+        # 必须在取标题之前拦：实测 sc_ny 的 /wza/ 标题整页乱码（UTF-8 字节被
+        # 当 latin-1 读），等拿到标题再判已经晚了——那串乱码既不含栏目词也不含
+        # 公文动词，所有标题规则都放行。
+        if self.NON_DOC_URLS.search(parsed.path):
             return False
         if path.endswith((".jpg", ".jpeg", ".png", ".gif", ".css", ".js", ".zip", ".rar")):
             return False
@@ -634,6 +714,10 @@ class HtmlListCollector(BaseCollector):
             raise ValueError(f"detail page has no usable title or content: {url}")
         if self._is_section_page(str(parsed.get("title") or "")):
             raise SectionLandingError(str(parsed.get("title")))
+        if self._looks_like_listing(str(parsed.get("title") or ""),
+                                    str(parsed.get("content") or "")):
+            raise SectionLandingError(
+                f"listing-shaped body with a column-name title: {parsed.get('title')}")
         record = self.normalize_record(parsed)
         if "result" in locals() and self._crawl4ai_enabled():
             quality = self._crawl4ai_quality(result)
