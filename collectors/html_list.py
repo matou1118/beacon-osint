@@ -19,6 +19,19 @@ except ImportError:
 DEFAULT_RENDER_MODE = "static"
 
 
+def _html_has_content(html: str) -> bool:
+    """页面里到底有没有内容。
+
+    判据是"去标签后还有没有文字"，不是"够不够长"：WAF 拦截时浏览器返回的是
+    `<html><head></head><body></body></html>`，去掉标签后什么都没有。
+    早先用"文本 >50 字"的阈值，会把短小的合法页面也误判成空（测试就抓到了
+    '<a href="/art/1.html">公告</a>' 这种 2 字链接页）。
+    """
+    stripped = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html or "")
+    stripped = re.sub(r"(?s)<[^>]+>", " ", stripped)
+    return bool(re.sub(r"\s+", " ", stripped).strip())
+
+
 class SectionLandingError(ValueError):
     """A site-chrome page, not an announcement.
 
@@ -356,8 +369,22 @@ class HtmlListCollector(BaseCollector):
         # Still short: the column is JS-rendered or paginated behind a widget.
         if len(links) < cap and self.source.get("playwright_fallback", False):
             try:
+                rendered_any = False
                 for rendered in self._render_archive(self.list_url):
+                    if not _html_has_content(rendered):
+                        continue
+                    rendered_any = True
                     links.extend(self._extract_links(rendered, base_url))
+                # An empty <body> means the browser loaded nothing usable: typically
+                # HTTP 412 anti-bot (chengdu.gov.cn does exactly this) rather than a
+                # column with no announcements. Staying silent here reported
+                # "0 records, no reason" and made blocked sites look empty, so say so.
+                if not rendered_any:
+                    self._note(
+                        "render_empty_body",
+                        "browser returned an empty body (likely anti-bot/WAF, not an "
+                        f"empty column): {self.list_url}",
+                    )
             except Exception as exc:
                 self._note("archive_render_failed", f"archive render failed: {exc}")
 
