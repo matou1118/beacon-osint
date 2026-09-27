@@ -88,6 +88,48 @@ class ExtractorTests(unittest.TestCase):
         self.assertEqual(result["region"], "四川省")
         self.assertEqual(result["needs_review"], 1)
 
+    def test_regex_fallback_produces_a_summary_from_the_body(self) -> None:
+        """extract() must hand the parsed body to the summariser.
+
+        The result dict never carried a "content" key, yet the summarise step
+        read result.get("content"), so every record collected through the normal
+        pipeline came out with an empty summary and a no_usable_sentence repair
+        -- 1409 of 1883 rows in the store, with summary_rate stuck at 0.25. Only
+        a hand-run resummarize backfill produced summaries, so each collection
+        round silently undid the last one's work.
+        """
+        body = (
+            "<html><head><title>关于开展2026年度中小企业数字化转型试点工作的通知</title></head>"
+            "<body><p>当前位置：首页 / 通知公告</p>"
+            "<p>为深入推进中小企业数字化转型，四川省经济和信息化厅决定组织开展2026年度试点申报工作。</p>"
+            "<p>申报截止日期为2026-04-30，试点补助资金为500万元，每个企业最高可获支持。</p>"
+            "<p>申报企业须为省内注册的独立法人，成立满一年且上一年度营业收入不低于2000万元。</p>"
+            "<p>请各申报企业按照通知要求准备材料，并于截止前提交至经信厅政务服务窗口。</p>"
+            "<p>网站地图 联系我们 打印此页 主办单位 四川省经济和信息化厅</p>"
+            "</body></html>"
+        )
+        result = RegexFallbackExtractor().extract(body)
+        self.assertTrue(
+            (result.get("summary") or "").strip(),
+            "extract() 未产出摘要；正文没有被传给 build_summary",
+        )
+        self.assertNotIn("no_usable_sentence", result.get("summary_repairs") or [])
+        self.assertTrue((result.get("content") or "").strip(), "清洗后正文不应为空")
+        # 清洗后的正文必须还带着关键事实，否则摘要再短也没有对比价值。
+        self.assertIn("2026-04-30", result["summary"] + result["content"])
+        self.assertIn("500万元", result["summary"] + result["content"])
+
+    def test_empty_summary_records_why(self) -> None:
+        """空摘要必须带原因，否则库里 1409 条缺口无从解释。"""
+        result = RegexFallbackExtractor().extract(
+            "<title>网站地图</title><body>打印此页 网站地图 扫描二维码 当前位置</body>"
+        )
+        self.assertEqual((result.get("summary") or "").strip(), "")
+        self.assertIn(
+            result.get("summary_drop_reason"), {"chrome_only", "empty_body"},
+            "空摘要必须记录 summary_drop_reason",
+        )
+
     def test_category_rules_drill_into_l1_and_l2(self) -> None:
         rules = load_category_rules()
         cases = [

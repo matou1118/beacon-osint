@@ -172,47 +172,44 @@ def measure(db_path: Path = DB) -> dict[str, object]:
     summary_rates = summary_report.get("rates") or {}
 
     # ── 全链路指标计算 ──────────────────────────────────────
-    # 采集产出率：有正文的记录 / 总记录（正文 > 200 字算有效产出）
+    # 这三个指标原先都从 extra 里找数据，但写入方从不往 extra 放这三个键：
+    # 附件存在 attachments 表、字段抽取存在 field_extractions 表、印证状态存在
+    # announcements.corroboration_status 列。实测 extra 中这三个键的记录数为 0，
+    # 所以三个指标恒为 0，与真实数据无关——库里明明有 211 条附件、5903 条字段
+    # 抽取、1883 条印证状态。下面改为从真实位置读取。
     collection_yield_rate = round(
         sum(1 for c in contents if len(c) > 200) / total, 4
     )
 
-    # 附件下载率：extra 里有 attachment_keys 的记录占比
-    attachment_count = 0
-    for row in rows:
+    def _scalar(query: str, params: tuple = ()) -> int:
+        # con is closed right after the main query above, so every later
+        # con.execute() raises ProgrammingError -- which is a sqlite3.Error
+        # subclass, so a broad except turns it into a silent 0 instead of a
+        # crash. Use a fresh read-only connection for these counts.
         try:
-            extra = json.loads(row["extra"] or "{}") or {}
-            if extra.get("attachment_keys") or extra.get("attachments"):
-                attachment_count += 1
-        except (TypeError, ValueError):
-            pass
+            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as probe:
+                row = probe.execute(query, params).fetchone()
+            return int(row[0]) if row and row[0] is not None else 0
+        except sqlite3.Error as exc:
+            raise RuntimeError(f"health query failed: {exc} — {query}") from exc
+
+    # 附件下载率：attachments 表里有正文的附件数 / 公告总数
+    attachment_count = _scalar("SELECT COUNT(*) FROM attachments")
     attachment_download_rate = round(attachment_count / total, 4)
 
-    # 对比覆盖率：extra 里有 field_extractions 的记录占比
-    compare_count = 0
-    for row in rows:
-        try:
-            extra = json.loads(row["extra"] or "{}") or {}
-            if extra.get("field_extractions") or extra.get("fields"):
-                compare_count += 1
-        except (TypeError, ValueError):
-            pass
+    # 对比覆盖率：有字段抽取结果的公告占比（抽取结果按 announcement_id 关联）
+    # 必须 JOIN announcements：field_extractions 里存在指向已删公告的孤儿行，
+    # 只查 field_extractions 会得到 1920 > 1883，比率大于 1。
+    compare_count = _scalar(
+        "SELECT COUNT(DISTINCT f.announcement_id) FROM field_extractions f "
+        "JOIN announcements a ON a.id = f.announcement_id"
+    )
     compare_coverage_rate = round(compare_count / total, 4)
 
-    # 印证通过率：extra 里有 corroboration 且 status=confirmed 的记录占比
-    corroboration_count = 0
-    for row in rows:
-        try:
-            extra = json.loads(row["extra"] or "{}") or {}
-            corr = extra.get("corroboration") or {}
-            if isinstance(corr, dict) and corr.get("status") == "confirmed":
-                corroboration_count += 1
-            elif isinstance(corr, list) and any(
-                (c.get("status") == "confirmed") for c in corr if isinstance(c, dict)
-            ):
-                corroboration_count += 1
-        except (TypeError, ValueError):
-            pass
+    # 印证通过率：corroboration_status = confirmed 的公告占比
+    corroboration_count = _scalar(
+        "SELECT COUNT(*) FROM announcements WHERE corroboration_status = 'confirmed'"
+    )
     corroboration_pass_rate = round(corroboration_count / total, 4)
 
     return {

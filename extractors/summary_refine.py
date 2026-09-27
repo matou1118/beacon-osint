@@ -92,6 +92,13 @@ def build_summary(
             "cleaned_chars": len(body),
             "compression": 0.0,
             "repairs": ["no_usable_sentence"],
+            # Why the summary is empty. resummarize.py and the self-improvement
+            # loop both read this key, and it was never set, so every empty
+            # summary in the store had no recorded cause and the drop looked
+            # unexplained. "chrome_only" separates "the cleaner removed
+            # everything" from "the body was already empty", which need different
+            # fixes.
+            "drop_reason": "chrome_only" if body.strip() else "empty_body",
         }
 
     repairs: list[str] = []

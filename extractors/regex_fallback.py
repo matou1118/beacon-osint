@@ -48,12 +48,24 @@ class RegexFallbackExtractor:
         # sentences, never a model rewrite, so it stays testable.
         # Scrape -> clean -> summarise -> self-correct. The refine pass fixes the
         # defects measured on real pages (crumbs, toolbars, compression drift).
-        digested = build_summary(result.get("content") or "", result.get("title") or "")
+        #
+        # The text handed to build_summary must be the body that was actually
+        # parsed. This dict never carried a "content" key, so reading
+        # result.get("content") here always yielded "" and every record came out
+        # of the collection path with an empty summary and a
+        # no_usable_sentence repair -- 1409 of 1883 rows in the store. Only
+        # scripts/resummarize.py, which reads the body back out of the database,
+        # ever produced a summary, which is why a hand-run backfill "fixed" it
+        # and the next collection round undid it.
+        digested = build_summary(plain, title)
         result["content"] = digested["clean_text"]
         result["summary"] = digested["summary"]
         result["key_points"] = digested["key_points"] or key_points
         result["extraction_tags"] = digested["tags"]
         result["summary_repairs"] = digested["repairs"]
+        # Carry the reason through so storage can record why a summary is empty.
+        if digested.get("drop_reason"):
+            result["summary_drop_reason"] = digested["drop_reason"]
         if result["category_l1"] == "招生信息":
             result["admission_sub_category"] = classified["category_l2"]
         else:
