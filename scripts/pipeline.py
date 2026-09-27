@@ -33,10 +33,17 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from collectors.lock import CollectLockBusy, acquire, release  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 STATE = ROOT / "data" / "pipeline_state.json"
 LOCK_DIR = ROOT / "data" / "runtime" / "collect.lock"
+# 流水线自己的锁目录。必须是另一把锁：它会调 batch_collect，而 batch_collect 要取
+# 采集锁，同一把会让流水线把自己挡在门外。
+PIPELINE_LOCK_DIR = ROOT / "data" / "runtime" / "pipeline.lock"
 
 
 def log(message: str) -> None:
@@ -150,6 +157,12 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--all-statuses", action="store_true",
                         help="连 blocked/pending_reprobe 一起试（默认只跑启用源）")
+    parser.add_argument("--drain", action="store_true",
+                        help="排空模式：反复采集直到各源取空（通宵用）")
+    parser.add_argument("--rounds", type=int, default=40, help="--drain 的最大轮数")
+    parser.add_argument("--pause", type=int, default=120, help="--drain 轮间暂停秒数")
+    parser.add_argument("--stop-when-dry", type=int, default=3,
+                        help="--drain 连续几轮无新增就收工")
     args = parser.parse_args()
 
     log(f"灯塔采集流水线  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -159,11 +172,40 @@ def main() -> int:
     if lock_note:
         log(f"锁：{lock_note}")
 
+    # 流水线必须自己持一把锁跑完整轮，而不是只清僵尸锁就继续。
+    # 原来只调 clear_stale_lock()，它检测到"另一轮正在跑"之后照样往下走，于是
+    # 两个 pipeline 并行：采集那步有 batch_collect 自己的锁挡着，可后面
+    # prune_section_pages / dedup 这些会 DELETE 的步骤完全裸奔——实测就撞上了，
+    # 第二个实例已经跑到 [dedup]，而第一个还在 collect。
+    #
+    # 也不能直接复用采集锁：流水线自己会调 batch_collect，那样会把自己挡在门外。
+    # 所以另开一把，只管"有没有别的流水线在跑"。
+    try:
+        acquire("流水线", wait_seconds=0, lock_dir=PIPELINE_LOCK_DIR)
+    except CollectLockBusy:
+        log("已有一轮流水线在跑，本次不启动（避免两个进程同时删改同一个库）")
+        return 0
+
+    try:
+        return _run(args)
+    finally:
+        release(PIPELINE_LOCK_DIR)
+
+
+def _run(args) -> int:
+    collect = [PY, "-u", "-B", "scripts/batch_collect.py", "--force",
+               "--limit", str(args.limit), "--workers", str(args.workers),
+               "--timeout", str(args.timeout)]
+    if args.all_statuses:
+        collect.append("--all-statuses")
+    if args.drain:
+        # 通宵采集要的是"取空为止"，不是"每源取 N 条就走"。一轮 limit 打满后
+        # 源里还有新公告，所以要反复排空，连续几轮没新增才收工。
+        collect += ["--rounds", str(args.rounds), "--pause", str(args.pause),
+                    "--stop-when-dry", str(args.stop_when_dry)]
+
     steps = [
-        ("collect", [PY, "-u", "-B", "scripts/batch_collect.py", "--force",
-                     "--limit", str(args.limit), "--workers", str(args.workers),
-                     "--timeout", str(args.timeout)]
-                     + (["--all-statuses"] if args.all_statuses else [])),
+        ("collect", collect),
         ("clean", [PY, "-u", "-B", "scripts/prune_section_pages.py", "--apply"]),
         # 补抽必须在重算摘要之前：摘要的头部事实行（金额/截止/责任机构）读的是
         # 这些列，不先补上就是拿旧值去拼。

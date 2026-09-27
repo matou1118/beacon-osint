@@ -133,10 +133,18 @@ def main() -> int:
                 "UNIQUE(announcement_id, label, value_yuan))")
     con.execute("CREATE INDEX IF NOT EXISTS ix_amount_year_label "
                 "ON amounts(year, label, value_yuan)")
+    # 必须是 upsert，不能 INSERT OR IGNORE。
+    # UNIQUE(announcement_id, label, value_yuan) 会让重跑全部撞键被忽略，
+    # 于是规则改好了重跑却"什么都没变"——实测把 _year_of 换成 _nearest_year
+    # 之后重跑，行数仍是 351、年份一个没动。抽取规则会迭代，脚本必须能改旧行。
     con.executemany(
-        "INSERT OR IGNORE INTO amounts (announcement_id, label, value_yuan, unit,"
+        "INSERT INTO amounts (announcement_id, label, value_yuan, unit,"
         " raw, year, confidence, source, evidence, created_at)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        " VALUES (?,?,?,?,?,?,?,?,?,?)"
+        " ON CONFLICT(announcement_id, label, value_yuan) DO UPDATE SET"
+        "   unit=excluded.unit, raw=excluded.raw, year=excluded.year,"
+        "   confidence=excluded.confidence, source=excluded.source,"
+        "   evidence=excluded.evidence",
         [(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8],
           datetime.now().isoformat(sep=" ")) for p in plan])
 

@@ -184,6 +184,28 @@ def _year_of(text: str) -> int | None:
     return int(m.group(0)[:4]) if m else None
 
 
+def _nearest_year(text: str, start: int, end: int, radius: int = 160) -> int | None:
+    """取离金额**最近**的年份，而不是文本里出现的第一个。
+
+    两个坑：
+    1. 窗口太窄。原先只回看 60 字，于是「……根据2024年预算执行情况，2026年
+       安排支出51948亿元」里的 51948 落在窗口外，年份只能回退成发布年 2026
+       ——跨年对比时这就直接错位了。放宽到 160 字。
+    2. 取第一个而不是最近的。一份文件里常有好几个年份（发布年、执行年、目标年），
+       挨着金额的那个才是它所属的年份。
+    """
+    lo = max(0, start - radius)
+    window = text[lo:end + 40]
+    best: tuple[int, int] | None = None
+    for m in DATE_RE.finditer(window):
+        offset = lo + m.start()
+        # 距离：年份在金额左侧还是右侧
+        dist = (start - offset) if offset < start else (offset - end)
+        if best is None or dist < best[0]:
+            best = (dist, int(m.group(0)[:4]))
+    return best[1] if best else None
+
+
 # ---------------------------------------------------------------- 表格抽取
 
 
@@ -260,7 +282,7 @@ def parse_table_amounts(body: str) -> list[AmountHit]:
                 confidence=conf,
                 source="table",
                 evidence=_context(cell, m.start(), m.end(), before=30, after=18),
-                year=_year_of(line),
+                year=_nearest_year(line, m.start(), m.end()),
             ))
     return hits
 
@@ -293,7 +315,7 @@ def parse_prose_amounts(body: str, title: str = "") -> list[AmountHit]:
             confidence=92 if in_title else 74,
             source="prose",
             evidence=_context(text, start, end),
-            year=_year_of(text[max(0, start - 60):end]),
+            year=_nearest_year(text, start, end),
         ))
     return hits
 
@@ -399,6 +421,6 @@ def extract_amounts(body: str, title: str = "", *, year: int | None = None
                 confidence=66,
                 source="prose",
                 evidence=_context(text, m.start(), m.end(), before=30, after=18),
-                year=year or _year_of(text[max(0, m.start() - 80):m.end()]),
+                year=_nearest_year(text, m.start(), m.end()) or year,
             )]
     return unique, candidates[:8]
