@@ -140,12 +140,29 @@ def build_summary(
         repairs.append("dropped_contact_tail")
 
     # Correction 1: compression band.
+    #
+    # The floor exists so a short notice is not over-compressed. It used to be
+    # bounded by neither MAX_POINTS nor MAX_SUMMARY_CHARS — only by `need`
+    # (10% of the body) and by running out of sentences. On a 187,122-char body
+    # (a listing page stored as an announcement) that padded the summary to
+    # ~18,700 chars across 49 key points. 515 of 1576 records (33%) were over
+    # the limit for that one reason, and MAX_SUMMARY_CHARS — declared at line 49 —
+    # was not referenced anywhere in the module.
+    #
+    # The floor can also break through MAX_POINTS on purpose: the main passes
+    # already fill `chosen` to `limit`, so a floor that respects the point count
+    # can never fire at all — it was dead code. Point count is a soft target;
+    # MAX_SUMMARY_CHARS is the hard ceiling. Allowing a few extra short points to
+    # reach 10% of a normal notice keeps the "don't over-compress" intent without
+    # letting a runaway body dictate the length: need is capped at 600 too, and
+    # the loop guard stops on the character ceiling regardless.
     body_len = max(1, len(body))
     ratio = len(summary) / body_len
     if ratio < COMPRESS_FLOOR and len(sentences) > len(points):
-        need = int(body_len * COMPRESS_FLOOR)
+        need = min(int(body_len * COMPRESS_FLOOR), MAX_SUMMARY_CHARS)
         for index in ranked:
-            if len(summary) >= need or len(chosen) >= len(sentences):
+            if (len(summary) >= need or len(chosen) >= len(sentences)
+                    or len(summary) >= MAX_SUMMARY_CHARS):
                 break
             if index in chosen:
                 continue
@@ -177,6 +194,29 @@ def build_summary(
             summary = "".join(points[:weakest] + points[weakest + 1:])
             points.pop(weakest)
         repairs.append("lowered_compression")
+
+    # Correction 1b: the hard cap. The compression bands are relative to the body,
+    # so a long body can keep the summary proportionally long — 30% of 5,000 chars
+    # is 1,500, well past MAX_SUMMARY_CHARS. A summary is a summary: past the cap it
+    # stops being one. Protect the same signal sentences as above so the amount and
+    # the deadline survive, and never drop below two points.
+    if len(summary) > MAX_SUMMARY_CHARS and len(points) > 2:
+        protected = {
+            i for i in range(len(points))
+            if i == 0 or _signal_kinds(points[i]) & {"金额", "时限", "时段", "对象"}
+        }
+        while len(summary) > MAX_SUMMARY_CHARS and len(points) > 2:
+            removable = [i for i in range(len(points)) if i not in protected]
+            if not removable:
+                # Everything left is signal-bearing: cut the longest instead of
+                # losing the amount/deadline entirely.
+                removable = [i for i in range(len(points)) if i != 0] or list(range(1, len(points)))
+            if not removable:
+                break
+            longest = max(removable, key=lambda i: len(points[i]))
+            summary = "".join(points[:longest] + points[longest + 1:])
+            points.pop(longest)
+        repairs.append("capped_summary_chars")
 
     # Correction 2: a summary that stops mid-clause reads as truncated. Append the
     # stop the source sentence lacked; a roster of names is left as-is because it

@@ -6,6 +6,8 @@ from extractors.clean_summarize import dedupe_sentences, strip_chrome
 from extractors.summary_refine import (
     COMPRESS_CEILING,
     COMPRESS_FLOOR,
+    MAX_POINTS,
+    MAX_SUMMARY_CHARS,
     audit,
     build_summary,
 )
@@ -122,6 +124,54 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(report["counts"]["breadcrumb"], 0)
         self.assertEqual(report["counts"]["toolbar"], 0)
         self.assertEqual(report["counts"]["no_terminator"], 0)
+
+    def test_huge_body_cannot_drive_the_summary_past_the_caps(self) -> None:
+        """超长正文不能把摘要撑破上限。
+
+        线上实测：id=2203 的 content 有 187,122 字（一个列表页被当公告存进来了），
+        压缩率下限补句的循环只按"正文的 10%"和"句子用完"两个条件停，既不看
+        MAX_POINTS 也不看 MAX_SUMMARY_CHARS，于是摘要被补到 18,993 字、49 条要点。
+        515/1576 条（33%）超限都是这一个原因，而且 MAX_SUMMARY_CHARS 这个常量
+        当时定义了却全代码没有任何地方引用。
+        """
+        # 用短句堆出超长正文，模拟列表页灌进 content 的情形
+        body = "。".join(f"第{i}条关于申报事项的说明材料请按规定报送" for i in range(1, 4000))
+        result = build_summary(body + "。", "测试标题")
+        self.assertLessEqual(len(result["summary"]), MAX_SUMMARY_CHARS,
+                             f"摘要 {len(result['summary'])} 字，超出上限")
+        self.assertGreater(len(result["summary"]), 0)
+
+    def test_compression_floor_still_applies_to_short_notices(self) -> None:
+        """上限不能把"别压太狠"这个意图一起弄丢：下限仍要能补句。
+
+        这是上面那个取舍的正向用例。N=80 时初始 8 条要点只有 448 字，够不到
+        10% 下限 455，于是补到 9 条、504 字——点数被突破，但这是有意的：
+        点数是软目标，MAX_SUMMARY_CHARS 才是硬上限。
+        """
+        body = "。".join(
+            f"第{i}条申报要求请各申报单位于本月底前将纸质材料报送至受理窗口，"
+            f"并电话确认材料清单与份数，逾期不再受理，特此通知"
+            for i in range(1, 81)
+        )
+        result = build_summary(body + "。", "测试标题")
+        floor = min(int(len(body) * COMPRESS_FLOOR), MAX_SUMMARY_CHARS)
+        self.assertIn("raised_compression", result.get("repairs") or [],
+                      "压缩率下限没有触发")
+        self.assertGreaterEqual(len(result["summary"]), floor)
+        self.assertLessEqual(len(result["summary"]), MAX_SUMMARY_CHARS)
+
+    def test_hard_char_cap_binds_even_when_points_are_allowed_to_grow(self) -> None:
+        """点数放开后，字数硬上限必须仍然守住。
+
+        这两条规则是一对取舍：下限修正会突破 MAX_POINTS，所以唯一能兜住失控的是
+        MAX_SUMMARY_CHARS。正文 13 万字时 need 被 min() 压到 600，循环必须在那里停。
+        """
+        body = "。".join(
+            f"第{i}条关于申报事项的说明材料请按规定报送至受理窗口并电话确认" for i in range(1, 4000)
+        )
+        result = build_summary(body + "。", "测试标题")
+        self.assertLessEqual(len(result["summary"]), MAX_SUMMARY_CHARS)
+        self.assertGreater(len(result["summary"]), 0)
 
 
 if __name__ == "__main__":

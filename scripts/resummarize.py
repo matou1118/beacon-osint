@@ -64,7 +64,8 @@ def backup(con: sqlite3.Connection) -> None:
 def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
     updates: list[dict] = []
     stats: Counter = Counter()
-    for row in con.execute("SELECT id, source_id, title, content, extra FROM announcements"):
+    for row in con.execute("SELECT id, source_id, title, content, extra, key_points "
+                           "FROM announcements"):
         try:
             extra = json.loads(row["extra"] or "{}")
         except (TypeError, ValueError):
@@ -97,9 +98,21 @@ def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
         elif old != new:
             stats["changed"] += 1
         else:
-            stats["unchanged"] += 1
-            if content is None:
-                continue
+            # "摘要没变"不等于"不用写"：key_points 列和 extra["summary"] 可能已经
+            # 不同步。这个脚本原来只更新 extra，产品读的是 key_points 那一列，
+            # 于是摘要改进全部落在没人消费的地方。而一旦 extra 先被修好，
+            # 下一轮就会因为 old == new 而跳过，key_points 永远补不上。
+            # 所以跳过条件必须同时看列。
+            try:
+                stored_points = json.loads(row["key_points"] or "[]")
+            except (TypeError, ValueError):
+                stored_points = []
+            if stored_points == (result.get("key_points") or []):
+                stats["unchanged"] += 1
+                if content is None:
+                    continue
+            else:
+                stats["key_points_synced"] += 1
 
         if new and (CHROME.search(new) or nav_label_hits(new) >= NAV_RUN_THRESHOLD):
             stats["still_dirty"] += 1
@@ -113,7 +126,14 @@ def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
         else:
             merged.pop("summary_drop_reason", None)
         updates.append({"id": row["id"], "extra": json.dumps(merged, ensure_ascii=False),
-                        "content": content, "old_len": len(old), "new_len": len(new)})
+                        "content": content, "old_len": len(old), "new_len": len(new),
+                        # 关键：key_points 必须写进真正的列。
+                        # 这个脚本原来只更新 extra["key_points"]，而 app.py 与
+                        # api/services/announcement_service.py 读的是
+                        # announcements.key_points 那一列——于是摘要质量的所有改进
+                        # 都落在产品不消费的地方，界面上看不出任何变化。
+                        "key_points": json.dumps(result.get("key_points") or [],
+                                                  ensure_ascii=False)})
     return updates, stats
 
 
@@ -160,9 +180,9 @@ def main() -> int:
     con = connect()
     try:
         con.executemany(
-            "UPDATE announcements SET extra = ?, content = COALESCE(?, content), updated_at = ?"
-            " WHERE id = ?",
-            [(u["extra"], u["content"], now, u["id"]) for u in updates],
+            "UPDATE announcements SET extra = ?, key_points = ?, "
+            "content = COALESCE(?, content), updated_at = ? WHERE id = ?",
+            [(u["extra"], u["key_points"], u["content"], now, u["id"]) for u in updates],
         )
         con.commit()
     finally:
