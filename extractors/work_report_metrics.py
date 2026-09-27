@@ -50,7 +50,8 @@ _GROWTH = rf"(?:增长|下降|减少|提高|降低|上升|回落)\s*(?P<growth>-
 # 单 token 的可选组匹配不上（"全年城镇调查失业率平均值为4.2%" 就因此漏掉）。
 _LINK = (r"(?:达到|完成|实现|达|为|是|平均|平均为|平均值为|分别|约为|约|近|超过|超出|超|逾|"
          r"不小于|不少于|在|计|总计|累计|新增|增长至|增至|增加到|控制在|保持在|降至|低于|"
-         r"不超过|不高于|预计|计划){0,2}\s*")
+         r"不超过|不高于|预计|计划|连续|连续跨越|再上|"
+         r"(?:19|20)\d{2}\s*年){0,2}\s*")
 # 百分号作为单位捕获
 _PCT = rf"{_VALUE}\s*(?P<unit>%)"
 
@@ -271,6 +272,34 @@ _NOT_ANNUAL = re.compile(
 # 目标类关键词：命中则 is_target=True（「本年目标」段）
 _TARGET_CUES = ("目标", "计划", "力争", "争取", "确保", "达到", "实现", "预期", "力争达到")
 
+# 句子里明确点名的年份。政府工作报告的回顾段讲的是**上年**：
+#   上海 2007 报告「一、2006年工作回顾」…全市生产总值达到10297亿元
+# 这 10297 亿是 2006 年的数，按报告年份记就整体错位一年。实测三份报告全部
+# 如此（上海 2007→2006、上海 2016→2015、武汉 2011 正文写"2010年达到5515.8亿元"）。
+# 句内带年份时以句内为准，比段落推断准——武汉那句正文就写了 2010 年。
+_SENTENCE_YEAR_RE = re.compile(r"(?:19|20)\d{2}\s*年")
+
+# 年份前面的这些字说明它是"比较基准"而不是数值本身的年份：
+#   "比2002年增长71.7%"      2002 是比较基准
+#   "是2005年的2.4倍"        2005 是比较基准
+#   "从2002年翻了一番多"      2002 是比较基准
+# 不排除的话，"句内年份优先"会把基准年当成数值年份：
+# 居民人均可支配收入的跨度一度变成 2002-2025，而 2002 只是"比2002年增长"里的
+# 那个基准。取句内**第一个非比较基准**的年份。
+_COMPARISON_MARKERS = ("比", "是", "较", "从", "对", "相", "至", "到", "达", "于")
+
+
+def _value_year(sentence: str) -> int | None:
+    """句子里数值本身的年份；比较基准年返回 None。"""
+    for match in _SENTENCE_YEAR_RE.finditer(sentence or ""):
+        before = sentence[max(0, match.start() - 2):match.start()]
+        if any(marker in before for marker in _COMPARISON_MARKERS):
+            continue
+        year = int(match.group(0)[:4])
+        if 1950 <= year <= 2049:
+            return year
+    return None
+
 
 def _scale(value: float, unit: str) -> float:
     if unit in _RATIO_UNITS:
@@ -361,9 +390,19 @@ def extract_metrics(
                 seen.add(dedupe)
 
                 growth = re.search(_GROWTH, text[match.end(): match.end() + 24])
+                # 年份归属：句内点名最准，回顾段兜底减一。
+                # 回顾段讲的是上年实际值（上海 2007 报告的「一、2006年工作回顾」
+                # 里的 GDP 属于 2006 年），不减一就会整体错位。
+                named = _value_year(sentence)
+                if named:
+                    value_year = named
+                elif section_key == "review":
+                    value_year = year - 1
+                else:
+                    value_year = year
                 out.append({
                     "region_code": region_code,
-                    "year": year,
+                    "year": value_year,
                     "topic": spec["topic"],
                     "metric_key": key,
                     "metric_name": spec["name"],

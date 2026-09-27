@@ -151,6 +151,11 @@ def parse_communique(text: str, region_code: str, year: int, publisher: str, url
                 unit = (match.groupdict().get("unit") or "").strip()
                 if _YEAR_ONLY.match(raw):
                     continue
+                # 与报告侧同一处坑：(?<!人均) 挡不住，因为 (?:地区)? 可选，
+                # 正则会从"生"字处起匹配，那里前两字是"地区"。广州 2024 公报
+                # 的「人均地区生产总值达164171元」因此被记成 gdp 总量。
+                if "人均" in text[max(0, match.start() - 4):match.start()]:
+                    continue
                 try:
                     value = float(raw)
                 except ValueError:
@@ -192,29 +197,49 @@ def parse_communique(text: str, region_code: str, year: int, publisher: str, url
 
 
 # ── 交叉验证 ─────────────────────────────────────────────
+# 单位归一。抽取层刻意不做量级归一（原文"64.1万人"就存 64.1 + 万人，
+# 见 extractors/work_report_metrics.py 的说明），所以同一个量在不同来源里
+# 单位不同：上海报告写"5.67万亿元"、统计公报写"56708.71亿元"，
+# 上海报告写"8.8万元"、公报写"88366元"。不归一就比，这些会被报成 100% 的
+# 冲突——那是单位表述差异，不是数据矛盾。
+_UNIT_SCALE = {
+    "万亿元": 1e12, "亿元": 1e8, "万元": 1e4, "元": 1.0,
+    "亿美元": 1e8, "万美元": 1e4,
+    "亿人": 1e8, "万人": 1e4, "万人次": 1e4, "人": 1.0,
+    "万": 1e4, "亿": 1e8, "%": 1.0,
+    "个": 1.0, "名": 1.0, "所": 1.0, "家": 1.0, "张": 1.0, "床位": 1.0,
+}
+
+
+def _normalized(value: float, unit: str | None) -> float:
+    return float(value) * _UNIT_SCALE.get(unit or "", 1.0)
+
+
 def _same_value(a: float, b: float) -> bool:
     scale = max(abs(a), abs(b), 1.0)
     return abs(a - b) / scale <= CONFLICT_TOLERANCE
 
 
 def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
-    """找出同一 (地区, 年份, 指标) 有两个不同值的情况。
+    """找出同一 (地区, 年份, 指标) 有实质差异的情况。
 
-    不自动取舍。统计公报发布后，次年政府工作报告的"上年回顾"有时会给出
-    修订后的数字，这本身是有价值的信息；抹掉它就看不出修订发生过。
+    先按单位归一再比。抽取层刻意保留原文单位，所以"5.67万亿元"与
+    "56708.71亿元"、"8.8万元"与"88366元"是同一个量的不同表述，直接比会报成
+    100% 冲突，那是噪声不是矛盾。
+
+    归一后仍有差异的**不自动取舍**：统计公报发布后，次年政府工作报告的
+    "上年回顾"有时会给出修订后的数字，这本身是有价值的信息，抹掉就看不出
+    修订发生过。
     """
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
     try:
         rows = list(con.execute("""
-            SELECT m.region_code, r.region_name, m.year, m.metric_key, m.metric_name,
-                   COUNT(DISTINCT m.value) AS distinct_values,
-                   GROUP_CONCAT(DISTINCT m.provenance) AS provenances
+            SELECT m.region_code, r.region_name, m.year, m.metric_key, m.metric_name
             FROM work_report_metrics m
             JOIN work_reports r ON r.id = m.report_id
             WHERE m.is_target = 0
             GROUP BY m.region_code, m.year, m.metric_key
-            HAVING distinct_values > 1
             ORDER BY m.region_code, m.year, m.metric_key
         """))
     except sqlite3.Error:
@@ -235,7 +260,12 @@ def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
             """, (row["region_code"], row["year"], row["metric_key"])))
         finally:
             con2.close()
-        numbers = [v["value"] for v in values]
+        numbers = [_normalized(v["value"], v["unit"]) for v in values]
+        # 归一后仍然不同才算冲突。同一个量的不同单位表述（5.67万亿元 vs
+        # 56708.71亿元）不该被报成冲突。
+        if len(values) < 2 or all(_same_value(numbers[0], other) for other in numbers[1:]):
+            continue
+        spread = (max(numbers) - min(numbers)) / max(abs(max(numbers)), abs(min(numbers)), 1.0)
         out.append({
             "region": row["region_name"],
             "year": row["year"],
@@ -245,6 +275,8 @@ def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
                 {
                     "value": v["value"],
                     "unit": v["unit"],
+                    # 归一后的值，方便直接比大小
+                    "normalized": _normalized(v["value"], v["unit"]),
                     "provenance": v["provenance"],
                     "provenance_label": PROVENANCE_LABEL.get(v["provenance"], v["provenance"]),
                     "caliber": v["caliber"],
@@ -255,9 +287,7 @@ def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
                 }
                 for v in values
             ],
-            "spread_pct": round(
-                (max(numbers) - min(numbers)) / max(abs(max(numbers)), abs(min(numbers)), 1.0) * 100, 1
-            ) if numbers else 0.0,
+            "spread_pct": round(spread * 100, 1),
         })
     return out
 

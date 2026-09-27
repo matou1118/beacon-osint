@@ -31,6 +31,7 @@ from storage.db import Database
 from storage.models import WorkReportMetric
 from work_report_verify import (
     PROVENANCE_COMMUNIQUE,
+    PROVENANCE_REPORT,
     coverage_by_provenance,
     parse_communique,
     resolve_conflicts,
@@ -122,7 +123,7 @@ def main() -> int:
                 with db.session() as session:
                     from sqlalchemy import select
 
-                    from storage.models import WorkReport
+                    from storage.models import WorkReport, WorkReportMetric
 
                     report = session.execute(
                         select(WorkReport).where(
@@ -132,17 +133,26 @@ def main() -> int:
                     ).scalar_one_or_none()
                     report_id = report.id if report is not None else None
                     if report_id is not None:
-                        # 公报是补数，不覆盖报告原文抽出的值：只在该 (地区,年份,指标)
-                        # 还没有任何记录时写入，冲突交给交叉验证去报
-                        for m in metrics:
-                            exists = session.execute(
-                                select(WorkReportMetric).where(
+                        # 先清掉这一格里来自公报的旧行再写。
+                        # 报告侧已经吃过一次亏：抽取规则改了但旧行还在，于是
+                        # 「人均地区生产总值达164171元」被当成 gdp 总量留在库里，
+                        # 交叉验证一直报它 100% 冲突。补数也必须可重入。
+                        session.query(WorkReportMetric).filter(
+                            WorkReportMetric.report_id == report_id,
+                            WorkReportMetric.provenance == PROVENANCE_COMMUNIQUE,
+                        ).delete(synchronize_session=False)
+                        # 公报是补数，不覆盖报告原文抽出的值：同一 (地区,年份,指标)
+                        # 已有报告原文的值就跳过，差异交给交叉验证去报。
+                        existing = {
+                            row[0] for row in session.execute(
+                                select(WorkReportMetric.metric_key).where(
                                     WorkReportMetric.report_id == report_id,
-                                    WorkReportMetric.metric_key == m["metric_key"],
-                                    WorkReportMetric.is_target == False,  # noqa: E712
+                                    WorkReportMetric.provenance == PROVENANCE_REPORT,
                                 )
-                            ).scalars().first()
-                            if exists is None:
+                            ).fetchall()
+                        }
+                        for m in metrics:
+                            if m["metric_key"] not in existing:
                                 session.add(WorkReportMetric(report_id=report_id, **m))
                 print(f"    {year}  {len(text):>6}字  指标 {len(metrics):>2}  "
                       + ("" if report_id else "(无对应报告,未写入)") + f"  {title[:28]}")

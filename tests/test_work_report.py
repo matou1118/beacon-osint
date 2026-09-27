@@ -223,6 +223,74 @@ class YearParseTests(unittest.TestCase):
         self.assertEqual(sections[1]["key"], "target")
 
 
+class YearAttributionTests(unittest.TestCase):
+    """回顾段的数值属于上年，按报告年份记会整体错位一年。"""
+
+    def test_review_section_attributes_to_previous_year(self) -> None:
+        got = extract_metrics("全市生产总值达到10297亿元,按可比价格计算比上年增长12%",
+                              region_code="x", year=2007, section_key="review")
+        gdp = [m for m in got if m["metric_key"] == "gdp"]
+        self.assertTrue(gdp)
+        self.assertEqual(gdp[0]["year"], 2006, "2007 报告回顾的是 2006 年")
+
+    def test_target_section_keeps_report_year(self) -> None:
+        got = extract_metrics("地区生产总值增长5%左右", region_code="x", year=2011,
+                              section_key="target")
+        self.assertEqual(got[0]["year"], 2011)
+
+    def test_year_named_in_sentence_wins(self) -> None:
+        """正文里点了年份就以它为准。
+
+        武汉 2011 那份：「地区生产总值连续跨越3000亿元…2010年达到5515.8亿元」
+        句内已经写明 2010 年，比"回顾段减一"更准。
+        """
+        got = extract_metrics("地区生产总值连续跨越3000亿元、4000亿元、5000亿元3个台阶,"
+                              "2010年达到5515.8亿元,是2005年的2.4倍",
+                              region_code="x", year=2011, section_key="review")
+        gdp = [m for m in got if m["metric_key"] == "gdp"]
+        self.assertTrue(gdp)
+        self.assertEqual(gdp[0]["year"], 2010)
+
+    def test_review_values_extend_the_series_one_year_back(self) -> None:
+        """一份报告应覆盖两个年份：上年实际 + 本年目标。"""
+        body = (
+            "一、2013年工作回顾 城镇新增就业17.6万人,转移农村劳动力5.2万人。 "
+            "二、2014年工作建议 城镇新增就业15万人。"
+        )
+        _preface, sections = split_sections(body)
+        actual = extract_metrics(sections[0]["text"], region_code="x", year=2014,
+                                 section_key=sections[0]["key"])
+        target = extract_metrics(sections[1]["text"], region_code="x", year=2014,
+                                 section_key=sections[1]["key"])
+        self.assertEqual(actual[0]["year"], 2013, "回顾段归 2013")
+        self.assertEqual(target[0]["year"], 2014, "目标段归 2014")
+
+
+    def test_comparison_base_year_is_not_taken_as_the_value_year(self) -> None:
+        """比较基准年不是数值本身的年份。
+
+        上海 2007：「全市生产总值达到10297亿元,按可比价格计算比上年增长12%,
+        连续15年保持两位数增长」——若把句内任意年份当归属，2002 之类的基准年
+        会被当成 10298 亿的年份，居民人均可支配收入跨度一度变成 2002-2025。
+        """
+        got = extract_metrics(
+            "全市生产总值达到10297亿元,按可比价格计算比上年增长12%,比2002年增长71.7%",
+            region_code="x", year=2007, section_key="review")
+        gdp = [m for m in got if m["metric_key"] == "gdp"]
+        self.assertTrue(gdp)
+        self.assertEqual(gdp[0]["year"], 2006, "10297 亿属于 2006 年，不是 2002")
+
+    def test_first_non_comparison_year_in_a_multi_year_sentence(self) -> None:
+        """武汉 2011：「2010年达到5515.8亿元,是2005年的2.4倍」取 2010。"""
+        got = extract_metrics(
+            "地区生产总值连续跨越3000亿元、4000亿元、5000亿元3个台阶,"
+            "2010年达到5515.8亿元,是2005年的2.4倍,五年年均增长14.8%",
+            region_code="x", year=2011, section_key="review")
+        gdp = [m for m in got if m["metric_key"] == "gdp"]
+        self.assertTrue(gdp)
+        self.assertEqual(gdp[0]["year"], 2010)
+
+
 class CommuniqueParseTests(unittest.TestCase):
     """统计公报是补报告缺口的来源，指标覆盖要够。"""
 
