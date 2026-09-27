@@ -76,10 +76,52 @@ class HtmlListCollector(BaseCollector):
         "网站导航", "走进", "提建议", "宣传页", "APP", "邮件系统", "外网",
         "机构设置", "政府部门", "省级服务平台", "政策主题服务", "政务服务网",
         "信息公开指南", "政府信息公开指南", "网站声明", "访问指南",
+        # 这几个是政务站首页最常见的入口，词序与上面的"互动交流"不同，
+        # 不能只靠 marker 覆盖。注意只加"独立成标题"时才会命中整串，
+        # 长公告标题里含"政民互动"不会被误伤（判断走的是 in 整串，需配合后缀剥壳）。
+        "政民互动", "依申请公开", "信息公开制度", "政策直达", "统一身份认证",
+        "统一社会信用代码", "跳转到", "正在跳转", "答复列表", "相关搜索",
     )
     SECTION_TITLE_EXACT = frozenset({"首页", "网站首页", "下载", "地图"})
-    # A portal page often appends its own site name: "省政府令_河南省人民政府门户".
-    SECTION_TITLE_TAIL = re.compile(r"[\u4e00-\u9fa5]{2,10}_[\u4e00-\u9fa5]{4,20}(?:门户网站|人民政府|政府网)$")
+    # 政务站的 <title> 常把站点名挂在后面："<正文标题> - 湖北省人民政府门户网站"。
+    # 注意分隔符不只有下划线：实测湖北省政府用 " - "。
+    # 关键：带这个后缀的**不全是栏目页**，真公告也带。实测同一站：
+    #   栏目页  政民互动 - 湖北省人民政府门户网站
+    #   真文件  湖北省人民政府关于印发《…十五五规划》的通知 - 湖北省人民政府门户网站
+    # 所以后缀只用来切分出标题主体，判栏目与否只看主体。
+    #
+    # 写成"捕获组 + 锚定"而不是一整条正则去 sub，有两个踩过的坑：
+    #   1. sub 会把整条吃掉。"政民互动 - 湖北省人民政府门户网站" 整串都符合后缀形状，
+    #      sub 之后剩空串，主体为空就什么规则都触发不了，栏目页反而漏放。
+    #   2. 后缀的站点名长度不能设下限。曾按 "站点名>=4 字" 写，结果
+    #      "政民互动_天津政务网"（站点名只有"天津"2 字）剥不掉。
+    # 主体用贪婪 .+ 让切分点落在**最后一个**分隔符上：标题内部也可能含 " - "。
+    # 站点名后缀。机构类后缀必须带上：发改委那批站点名是
+    # 「河南省发展和改革委员会」「陕西省发改委」，只认"政府网/门户网站"的话
+    # 这批源的导航页（新闻中心/通知公告/发改要闻/省领导…）一个都剥不开。
+    SITE_NAME_SUFFIX = re.compile(
+        r"^(?P<core>.+)\s*[-–—_]\s*"
+        r"(?P<site>.{2,32}?(?:门户网站|政务网站|人民政府|政府办公厅|政府网|政务网|信息网"
+        r"|委员会|人民政府办公厅|办公室|局|委|厅|院|中心))$"
+    )
+    # 标题主体这么短，且标题带站点名后缀 —— 那它是门户的栏目名而不是公告。
+    #
+    # 只在"带后缀"时启用是关键，不能无条件用：项目已有契约
+    # tests/test_collectors.py::test_real_announcements_are_not_rejected 明确要求
+    # 放行"锦江区公告"(5 字)、"工作动态"(4 字)、"信息公开"(4 字)——真实公告
+    # 标题确实可以很短。而门户页会把自己的名字挂在标题后面，"政民互动 - 湖北省
+    # 人民政府门户网站"剥完只剩 4 字，这种才敢按长度判。
+    # 阈值 8 来自拿库里 1762 条真实标题回归的分界：带后缀的栏目名最长 8 字。
+    # 改动阈值或去掉后缀前提，必须重跑 scripts/guard_regression.py。
+    SECTION_CORE_MAX_CHARS = 8
+
+    def _strip_site_suffix(self, title: str) -> str:
+        """剥掉尾部站点名，返回标题主体。切不出就原样返回。"""
+        text = (title or "").strip()
+        match = self.SITE_NAME_SUFFIX.match(text)
+        if match and len(match.group("core").strip()) >= 2:
+            return match.group("core").strip()
+        return text
 
     def _is_section_page(self, title: str) -> bool:
         value = re.sub(r"[\s　_|-]+", "", title or "")
@@ -89,8 +131,13 @@ class HtmlListCollector(BaseCollector):
             return True
         if any(re.sub(r"[\s　_|-]+", "", marker) in value for marker in self.SECTION_TITLE_MARKERS):
             return True
-        if self.SECTION_TITLE_TAIL.search(re.sub(r"[\s　|]+", "", title or "")):
-            return True
+        # 判标题主体（已剥掉站点名后缀）。不能反过来——" - 门户网站"后缀真公告也有，
+        # 直接按后缀拦会把湖北省政府全站真文件一起杀掉。
+        stripped = self._strip_site_suffix(title)
+        if stripped != (title or "").strip():
+            core = re.sub(r"[\s　_|-]+", "", stripped)
+            if core and len(core) <= self.SECTION_CORE_MAX_CHARS:
+                return True
         # "某某厅"/"某某局"/"某某政府" on its own names an organisation page.
         # "部" is excluded: a ministry name is often the subject of a real notice
         # (e.g. "生态环境部关于召回...").

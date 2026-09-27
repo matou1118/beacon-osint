@@ -247,6 +247,55 @@ class NationalCollectorTests(unittest.TestCase):
         health = optional_deps_health()
         self.assertEqual(health, {}, f"正文抽取依赖降级中：{health}")
 
+    def test_section_page_guard_separates_column_names_from_real_titles(self) -> None:
+        """栏目页守卫：剥掉站点名后缀后按主体判长短，但不能误杀真公告。
+
+        三个坑，都是被真实数据逼出来的：
+        1. 原正则只认下划线分隔，而湖北省政府用 " - "，栏目页一直漏放。
+        2. 用 sub 剥后缀会把整条吃掉——"政民互动 - 湖北省人民政府门户网站"整串都符合
+           后缀形状，sub 完剩空串，主体为空就什么规则都不触发，栏目页反而放行。
+        3. 站点名长度不能设下限，否则"政民互动_天津政务网"（站点名只有"天津"）剥不掉。
+
+        长度阈值 8 来自拿库里 1762 条真实标题回归的分界，且**只在标题带站点名
+        后缀时启用**：项目已有契约 test_real_announcements_are_not_rejected 要求
+        放行"锦江区公告"(5字)/"工作动态"(4字)，说明真实公告标题可以很短。
+        门户页会把自己的名字挂在标题后面，那种短主体才敢按长度判。
+        改动阈值或去掉后缀前提，必须重跑 scripts/guard_regression.py。
+        """
+        collector = self._list_only_collector("https://www.example.gov.cn/list.shtml")
+        must_block = [
+            "政民互动 - 湖北省人民政府门户网站",
+            "政策文件 - 湖北省人民政府门户网站",
+            "政民互动_天津政务网",
+            "市情_天津政务网",
+            # 站点名是机构名（发改委那批），只认"政府网/门户网站"会漏掉
+            "新闻中心_河南省发展和改革委员会",
+            "政务服务-陕西省发改委",
+            "政务联播 - 四川省人民政府网",
+            "机构沿革 - 四川省商务厅",
+            "机关简介 - 四川省商务厅",
+            "网站地图",
+        ]
+        must_pass = [
+            "浙江省基础测绘办法",
+            "一名區議員辭去席位",
+            "升旗及降旗儀式暫停",
+            "湖北省人民政府关于印发《湖北省卫生健康事业发展“十五五”规划》的通知"
+            " - 湖北省人民政府门户网站",
+            "关于组织开展2026年江苏省科技副总选派工作的通知",
+            "锦江区公告",
+            "工作动态",
+            "信息公开",
+            # 无后缀的短标题一律不按长度判：真实公告确实可以这么短。
+            # 代价是"統一身份認證平台"这类 8 字门户入口目前靠 marker 覆盖，
+            # 繁体写法漏了就不拦——保守取舍，误杀真数据的代价更高。
+            "报废资产处置公告",
+        ]
+        for title in must_block:
+            self.assertTrue(collector._is_section_page(title), f"应拦下栏目页：{title}")
+        for title in must_pass:
+            self.assertFalse(collector._is_section_page(title), f"误杀真公告：{title}")
+
     def test_content_excludes_site_chrome_when_trafilatura_available(self) -> None:
         """抽出来的正文不能把导航/页脚一起吞进去。
 
