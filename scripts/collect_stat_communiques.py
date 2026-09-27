@@ -161,6 +161,9 @@ def main() -> int:
         for v in c["values"]:
             print(f"      {v['value']}{v['unit'] or '':<6} 来自 {v['provenance_label']}"
                   f"  口径 {v['caliber'] or '-'}")
+            if v.get("evidence_text"):
+                text = v["evidence_text"]
+                print(f"          原文：{text[:150]}")
     cov = coverage_by_provenance()
     print("\n指标来源分布")
     for label, count in (cov.get("by_provenance") or {}).items():

@@ -136,6 +136,93 @@ class YearParseTests(unittest.TestCase):
         )
 
 
+    def test_work_suggestion_section_is_a_target_section(self) -> None:
+        """「二、2014年工作建议」是年度目标，不是长期规划。
+
+        早先把"建议"归给 plan，is_target 变 False，本年目标值被当成实际值。
+        交叉验证一次报出 12 处同类冲突，全是"一、20XX年工作回顾"的实际值
+        对上"二、20XX年工作建议"的目标值。
+        """
+        body = (
+            "一、2013年工作回顾 城镇新增就业17.6万人,转移农村劳动力5.2万人。 "
+            "二、2014年工作建议 城镇新增就业15万人,农村劳动力转移就业5.5万人。"
+        )
+        _preface, sections = split_sections(body)
+        self.assertEqual([s["key"] for s in sections], ["review", "target"])
+        review = extract_metrics(sections[0]["text"], region_code="x", year=2014,
+                                 section_key=sections[0]["key"])
+        target = extract_metrics(sections[1]["text"], region_code="x", year=2014,
+                                 section_key=sections[1]["key"])
+        self.assertFalse(review[0]["is_target"], "回顾段的实际值不是目标")
+        self.assertTrue(target[0]["is_target"], "工作建议段的值是本年目标")
+
+    def test_five_year_plan_draft_explanation_is_a_plan_section(self) -> None:
+        """「关于《…五年规划纲要(草案)》的说明」仍应归 plan，不能被目标类词抢走。"""
+        _preface, sections = split_sections(
+            "一、2025年工作回顾 内容。 "
+            "二、关于《上海市国民经济和社会发展第十五个五年规划纲要(草案)》的说明 内容。 "
+            "三、2026年主要任务 内容。"
+        )
+        self.assertEqual([s["key"] for s in sections], ["review", "plan", "target"])
+
+    def test_cumulative_and_multi_year_values_are_excluded(self) -> None:
+        """累计值与未来目标不是本年值，进年度序列会造出假数据。
+
+        交叉验证抓到的实例：
+          武汉 2012「五年城镇新增就业72.4万人」—— 五年累计，被记成 2012 年
+          广州 2007「到2011年,全市地区生产总值超过1万亿元」—— 2011 年目标
+          广州 2022「地方一般公共预算收入累计8475亿元」—— 多年加总
+        """
+        for text in (
+            "五年城镇新增就业72.4万人,扶持创业10.3万人",
+            "到2011年,全市地区生产总值超过1万亿元,人均生产总值达到1.3万美元",
+            "地方一般公共预算收入累计8475亿元,年均增长5.2%",
+        ):
+            with self.subTest(text=text):
+                got = extract_metrics(text, region_code="x", year=2012)
+                self.assertEqual(got, [], f"{text!r} 不应产出本年指标")
+
+    def test_fiscal_revenue_requires_local_caliber(self) -> None:
+        """全地区口径与市本级口径差 3.7 倍，不能当成同一指标。
+
+        广州 2022 那份同时写「来源于广州地区的一般公共预算收入」与
+        「地方一般公共预算收入」，宽松匹配会让交叉验证报出 100% 差异。
+        """
+        wide = extract_metrics("来源于广州地区的一般公共预算收入3000亿元", region_code="x", year=2022)
+        self.assertEqual([m for m in wide if m["metric_key"] == "fiscal_revenue"], [])
+        local = extract_metrics("地方一般公共预算收入8475亿元", region_code="x", year=2022)
+        self.assertEqual([m["value"] for m in local if m["metric_key"] == "fiscal_revenue"], [8475.0])
+
+
+    def test_target_section_recognised_from_content_not_title(self) -> None:
+        """标题一个目标词都没有、但正文写着"主要预期目标"的段落仍是目标段。
+
+        上海 2016 那份的「三、全力以赴做好"十三五"开局工作」：交叉验证报出
+        4.1%（上一年实际）与 4.4%（本年目标）同格冲突，因为该段没被认成目标段。
+        """
+        body = (
+            "一、2015年工作回顾 新增就业岗位59.7万个,城镇登记失业率控制在4.1%。 "
+            "三、全力以赴做好“十三五”开局工作 "
+            "今年经济社会发展主要预期目标:城镇登记失业率控制在4.4%以内。"
+        )
+        _preface, sections = split_sections(body)
+        keys = [s["key"] for s in sections]
+        self.assertEqual(keys, ["review", "target"])
+        target = extract_metrics(sections[1]["text"], region_code="x", year=2016,
+                                 section_key=sections[1]["key"])
+        self.assertTrue(target[0]["is_target"])
+
+    def test_review_section_is_never_reclassified_by_content(self) -> None:
+        """回顾段即使提到"主要预期目标"也不能被改判——它可能是在回顾上年目标。"""
+        body = (
+            "一、2015年工作回顾 全年地区生产总值增长6.6%,主要预期目标均已实现。 "
+            "三、2026年重点工作 地区生产总值增长5.5%左右。"
+        )
+        _preface, sections = split_sections(body)
+        self.assertEqual(sections[0]["key"], "review")
+        self.assertEqual(sections[1]["key"], "target")
+
+
 class CommuniqueParseTests(unittest.TestCase):
     """统计公报是补报告缺口的来源，指标覆盖要够。"""
 

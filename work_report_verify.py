@@ -117,6 +117,26 @@ COMMUNIQUE_METRICS: dict[str, dict[str, Any]] = {
 }
 
 # 只需从正文里排除的年份形态：1950-2049 的裸年份绝不能当指标值
+# 句中出现这些就不是"本年值"：累计、多年加总、未来目标。理由同报告侧
+# （见 extractors/work_report_metrics.py 的 _NOT_ANNUAL 注释）——五年累计
+# 混进年度序列会造出假数据。
+_NOT_ANNUAL = re.compile(
+    r"累计|五年|三年|近[三五七八十\d]+年|过去[三五七八九十\d]+年|年均|"
+    r"(?:到|预计到|力争到)\s*20\d{2}\s*年|上年同期|"
+    r"“?[一二三四五]?[十]?[五]?五”?规划|上个?五年|今后[三五]?年|未来[三五]?年"
+)
+
+# 公报侧同样收紧口径。广州 2022 那份同时写「来源于广州地区的一般公共预算
+# 收入」与「地方一般公共预算收入」，前者是全地区口径、后者是市本级，
+# 两者差 3.7 倍，宽松匹配会把两个口径当成同一指标。
+COMMUNIQUE_METRICS["fiscal_revenue"]["patterns"] = [
+    r"(?:地方|本级|市本级)(?:一般公共预算|一般预算)收入\s*" + _COMMUNIQUE_LINK + _COMMUNIQUE_NUMBER,
+]
+COMMUNIQUE_METRICS["fiscal_expenditure"]["patterns"] = [
+    r"(?:地方|本级|市本级)(?:一般公共预算|一般预算)支出\s*" + _COMMUNIQUE_LINK + _COMMUNIQUE_NUMBER,
+]
+
+# 裸年份绝不能当指标值：1950-2049 的数字是年份，不是指标。
 _YEAR_ONLY = re.compile(r"^(?:19|20)\d{2}$")
 
 
@@ -144,6 +164,8 @@ def parse_communique(text: str, region_code: str, year: int, publisher: str, url
                 start = text.rfind("。", 0, match.start()) + 1
                 end = text.find("。", match.end())
                 sentence = text[start: end if end > 0 else match.end() + 20].strip()
+                if _NOT_ANNUAL.search(sentence):
+                    continue
                 out.append({
                     "region_code": region_code,
                     "year": year,
@@ -206,7 +228,8 @@ def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
         con2.row_factory = sqlite3.Row
         try:
             values = list(con2.execute("""
-                SELECT DISTINCT m.value, m.unit, m.provenance, m.caliber, m.source_url
+                SELECT DISTINCT m.value, m.unit, m.provenance, m.caliber, m.source_url,
+                       m.section, m.evidence_text, m.is_target
                 FROM work_report_metrics m JOIN work_reports r ON r.id = m.report_id
                 WHERE m.region_code=? AND m.year=? AND m.metric_key=? AND m.is_target=0
             """, (row["region_code"], row["year"], row["metric_key"])))
@@ -226,6 +249,9 @@ def resolve_conflicts(db_path: Path | str = DB_PATH) -> list[dict[str, Any]]:
                     "provenance_label": PROVENANCE_LABEL.get(v["provenance"], v["provenance"]),
                     "caliber": v["caliber"],
                     "source_url": v["source_url"],
+                    "section": v["section"],
+                    # 原文出处。冲突不看原文就无法判断是修订、还是误匹配。
+                    "evidence_text": v["evidence_text"],
                 }
                 for v in values
             ],
