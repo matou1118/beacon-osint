@@ -63,16 +63,21 @@ def main() -> int:
         print("\n（预览模式，未写入。加 --apply 落盘）")
         return 0
 
-    now = None
+    # 只写真正变了的行。流水线里这一步原本 129 秒，而实际只有新增/规则改动的
+    # 那些行需要落库——每轮把 2000 行全 UPDATE 一遍既慢又会在 WAL 里留下
+    # 无谓的写入。分类本身是全量重算的（规则可能整体改动），但落库是增量的。
+    changed = [(r[5], r[6], r[0]) for r in results
+               if r[3] != r[5] or r[4] != r[6]]
     write = sqlite3.connect(ROOT / "data" / "beacon.db")
     try:
         write.executemany(
             "UPDATE announcements SET category_l1 = ?, category_l2 = ? WHERE id = ?",
-            [(r[5], r[6], r[0]) for r in results])
+            changed)
         write.commit()
     finally:
         write.close()
-    print(f"已写回 {len(results)} 条")
+    print(f"重算 {len(results)} 条，实际写回 {len(changed)} 条"
+          f"（其余 {len(results) - len(changed)} 条分类未变）")
 
     print(f"\n=== 抽 {args.show} 条看分得对不对 ===")
     for r in results[:args.show]:
