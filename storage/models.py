@@ -415,3 +415,100 @@ class UserNotice(Base):
     __table_args__ = (
         Index("ix_user_notice_user", "user_id", "read", "created_at"),
     )
+
+
+class WorkReport(Base):
+    """政府工作报告本体。
+
+    与公告分表存放，理由不是整洁而是度量：一份报告 2-4 万字，混进
+    announcements 会让 median_content_chars、under_200_chars_rate、
+    chrome_residue_rate 全部失真，那几个指标正是用来判断公告质量的。
+
+    year 从标题文本解析而不是 publish_date——每年报告的发布日不同
+    （上海 2026 年报告发布于 02-25），且归档页常年不更新。
+    """
+
+    __tablename__ = "work_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    region_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    region_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    level: Mapped[str] = mapped_column(String(32), nullable=False, default="市级")
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    report_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # [{"key": "review", "title": "一、2025年工作回顾", "chars": 8123}, ...]
+    sections: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    char_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_work_reports_region_year", "region_code", "year"),
+        Index("ix_work_reports_year", "year"),
+    )
+
+
+class WorkReportMetric(Base):
+    """从报告里抽出的可比指标。专题分析的燃料。
+
+    is_target 区分「上年回顾」段（上年实际完成值）与「本年目标」段
+    （本年目标值）。跨年对比的正确性依赖它：报告 N 的目标要跟报告 N-1
+    的实际比，而不是同年两个目标互比。
+
+    caliber 存口径原文表述。���住人口 != 户籍人口、地区生产总值 != 生产总值，
+    不记口径的跨地区对比是假的。口径不同的值不参与自动对比。
+    """
+
+    __tablename__ = "work_report_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("work_reports.id"), nullable=False)
+    region_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    topic: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    metric_name: Mapped[str] = mapped_column(String(96), nullable=False)
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    growth_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    growth_unit: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    is_target: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    caliber: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    section: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    evidence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extract_version: Mapped[str] = mapped_column(String(24), nullable=False, default="metrics-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("ix_wrm_metric_year", "metric_key", "year"),
+        Index("ix_wrm_region_metric", "region_code", "metric_key", "year"),
+        Index("ix_wrm_report", "report_id"),
+        Index("ix_wrm_topic", "topic"),
+    )
+
+
+class WorkReportTopic(Base):
+    """专题命中：某份报告里出现某专题的次数。专题看板用来定位原文段落。"""
+
+    __tablename__ = "work_report_topics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("work_reports.id"), nullable=False)
+    topic: Mapped[str] = mapped_column(String(32), nullable=False)
+    region_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 命中段落原文，供专题看板展示与人工核对
+    hits: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("ix_wrt_topic_year", "topic", "year"),
+        Index("ix_wrt_report", "report_id"),
+    )
