@@ -140,10 +140,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--from", dest="start", default="collect",
-                        choices=["collect", "clean", "refill", "summary", "classify", "dedup", "audit"],
+                        choices=["collect", "clean", "refill", "amounts", "summary", "classify", "dedup", "audit"],
                         help="从哪一步开始")
     parser.add_argument("--only", default=None,
-                        choices=["collect", "clean", "refill", "summary", "classify", "dedup", "audit"])
+                        choices=["collect", "clean", "refill", "amounts", "summary", "classify", "dedup", "audit"])
     parser.add_argument("--limit", type=int, default=30, help="每源最多取多少条")
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--timeout", type=int, default=300, help="每源秒数预算")
@@ -168,6 +168,8 @@ def main() -> int:
         # 补抽必须在重算摘要之前：摘要的头部事实行（金额/截止/责任机构）读的是
         # 这些列，不先补上就是拿旧值去拼。
         ("refill", [PY, "-u", "-B", "scripts/refill_fields.py", "--apply"]),
+        # 金额要在 summary 之前跑：摘要头部会带上「金额：…」，靠 amounts 表取值
+        ("amounts", [PY, "-u", "-B", "scripts/extract_amounts.py", "--apply"]),
         ("summary", [PY, "-u", "-B", "scripts/resummarize.py", "--apply"]),
         ("classify", [PY, "-u", "-B", "scripts/reclassify.py", "--apply"]),
         ("dedup", [PY, "-u", "-B", "scripts/dedup.py"]),

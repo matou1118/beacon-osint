@@ -356,6 +356,42 @@ class FieldExtraction(Base):
     )
 
 
+class Amount(Base):
+    """一条金额。一份文件可以有多条（环评公示里三个项目各一个总投资）。
+
+    为什么不塞进 announcements.amount 那个单值列：那份公示里
+    「动态投资总计1923610万元」「工程总投资390622万元」「动态总投资441128万元」
+    都是"投资总额"标签、不同值——单值列装不下，field_extractions 那个
+    UNIQUE(announcement_id, topic_id, field_key) 也装不下。
+
+    value_yuan 统一归一到"元"，1.92亿元 与 19200万元 在时间轴上必须是同一个点，
+    否则跨年对比就是错的。raw 保留原始书写形式给人看。
+    year 优先取正文里出现的年份（"2026年度补助"），回退 publish_date。
+    """
+
+    __tablename__ = "amounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    announcement_id: Mapped[int] = mapped_column(
+        ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False)
+    label: Mapped[str] = mapped_column(String(32), nullable=False)
+    value_yuan: Mapped[float] = mapped_column(Float, nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    raw: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source: Mapped[str] = mapped_column(String(8), nullable=False, default="prose")
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        # 幂等：重复跑抽取不会插重复行
+        UniqueConstraint("announcement_id", "label", "value_yuan", name="uq_amount"),
+        # 时间轴的主查询路径：按年分组、按金额排序
+        Index("ix_amount_year_label", "year", "label", "value_yuan"),
+    )
+
+
 class Attachment(Base):
     """附件文本提取留痕：只存提取后的文本，不存二进制文件。
 
