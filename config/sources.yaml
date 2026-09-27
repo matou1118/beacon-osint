@@ -70,8 +70,7 @@ county_source_policy:
   gov_level: 县级
   status: partial
   sources: []
-  note: 2026-09-25 实测：成都多数区县站点对静态请求返回 412（JS 挑战）。经 §3.1 playwright_fallback 渲染路径验证，cdjinjiang.gov.cn
-    3/3 稳定可用并已启用；cdwh.gov.cn 0/3 保持 blocked。行政区划代码取自国标码，仅作登记，不构成对该站点的采信。
+  note: 2026-09-25 实测：成都多数区县站点对静态请求返回 412（JS 挑战）。经 §3.1 playwright_fallback 渲染路径验证，cdjinjiang.gov.cn 3/3 稳定可用并已启用；cdwh.gov.cn 0/3 保持 blocked。行政区划代码取自国标码，仅作登记，不构成对该站点的采信。
   probed_at: '2026-09-25'
   probed_results:
   - id: cd_wuhou_gov
@@ -290,8 +289,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: '2026-09-25 探测失败，保持禁用：robots.txt access denied: https://www.ndrc.gov.cn。按
-    AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：robots.txt access denied: https://www.ndrc.gov.cn。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   playwright_fallback: true
 - id: mee_gov
   name: 生态环境部
@@ -688,8 +686,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测失败，保持禁用：HTTP 412 for https://www.nhc.gov.cn/wjw/gfxwjj/list.shtml。按
-    AGENTS.md 不得绕过 robots/反爬/访问控制。
+  notes: 2026-09-25 探测失败，保持禁用：HTTP 412 for https://www.nhc.gov.cn/wjw/gfxwjj/list.shtml。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
   playwright_fallback: true
 - id: mem_gov
   name: 应急管理部
@@ -708,11 +705,11 @@ sources:
   priority: P0
   focus_level: high
   retention_class: policy
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   max_items: 20
-  detail_pattern: /gk/.*/t\d+\.s?html?$
+  detail_pattern: /gk/zfxxgkpt/fdzdgknr/\d+/t\d+_\d+\.shtml
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.mem.gov.cn/gk/tzgg/
@@ -724,6 +721,8 @@ sources:
   cadence_seconds: 86400
   notes: 2026-09-25 探测失败，保持禁用：未取到记录。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
   playwright_fallback: true
+  list_selector: div.col_w799
+  link_selector: div.col_w799 a[href]
 - id: sc_gov
   name: 四川省人民政府
   level: provincial
@@ -936,8 +935,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 604800
-  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at
-    待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
 - id: sc_moe_gov
@@ -971,8 +969,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at
-    待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
 - id: cd_gov
@@ -1007,8 +1004,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: chengdu.gov.cn 站点侧反爬 HTTP 412，标准浏览器 UA 复测一致，不可用 stealth 或请求伪装绕过。 按 AGENTS.md
-    保持禁用，等待官方 API/RSS 或站点策略放开。
+  notes: chengdu.gov.cn 站点侧反爬 HTTP 412，标准浏览器 UA 复测一致，不可用 stealth 或请求伪装绕过。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
 - id: cd_mohrss_gov
@@ -1044,8 +1040,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 365
   cadence_seconds: 86400
-  notes: cdhrss.chengdu.gov.cn 返回 HTTP 412，同属成都全域反爬策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS
-    或站点策略放开。
+  notes: cdhrss.chengdu.gov.cn 返回 HTTP 412，同属成都全域反爬策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
 - id: cd_samr_gov
@@ -1081,8 +1076,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: scjg.chengdu.gov.cn 被反爬拦截（页面仅 201 字节结构化空页），同属成都全域策略。 按 AGENTS.md 保持禁用，等待官方
-    API/RSS 或站点策略放开。
+  notes: scjg.chengdu.gov.cn 被反爬拦截（页面仅 201 字节结构化空页），同属成都全域策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
 - id: cd_st_gov
@@ -1118,8 +1112,7 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: cdst.chengdu.gov.cn 的 robots.txt 返回 HTTP 412，无法核验抓取许可，禁止采集。 按 AGENTS.md 保持禁用，等待官方
-    API/RSS 或站点策略放开。
+  notes: cdst.chengdu.gov.cn 的 robots.txt 返回 HTTP 412，无法核验抓取许可，禁止采集。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
 - id: sc_health_gov
@@ -1269,8 +1262,7 @@ sources:
   playwright_timeout_ms: 60000
   list_selector: body
   detail_pattern: /content_[0-9a-f]{32}\.shtml$|/\d{15,}\.sht$
-  notes: 2026-09-25 探测：静态请求 412（站点 JS 挑战），§3.1 playwright_fallback 渲染路径 3/3 成功（200，21KB+）。项目负责人批准启用。terms_checked_at
-    待人工复核。
+  notes: 2026-09-25 探测：静态请求 412（站点 JS 挑战），§3.1 playwright_fallback 渲染路径 3/3 成功（200，21KB+）。项目负责人批准启用。terms_checked_at 待人工复核。
   probe_verified_at: '2026-09-25'
   archive_pages: 6
 - id: sc_he_gov
@@ -1413,7 +1405,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -1430,10 +1422,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.tl_con_bg
+  link_selector: div.tl_con_bg a[href]
+  detail_pattern: /web/zwgkx/tzgg/\d+/index\.shtml
 - id: sc_jl_gov
   name: 吉林省人民政府
   level: province
@@ -1494,7 +1488,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -1512,6 +1506,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: '#list'
+  link_selector: '#list a[href]'
+  detail_pattern: /hlj/c\d+/\d+/c\d+_\d+\.shtml
 - id: sc_js_gov
   name: 江苏省人民政府
   level: province
@@ -1533,7 +1530,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -1550,10 +1547,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: sc_zj_gov
   name: 浙江省人民政府
   level: province
@@ -1615,7 +1614,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -1633,6 +1632,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.gk_list
+  link_selector: div.gk_list a[href]
+  detail_pattern: /public/\d+/\d+\.html
 - id: sc_fj_gov
   name: 福建省人民政府
   level: province
@@ -1711,8 +1713,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_sd_gov
@@ -1753,8 +1754,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_ha_gov
@@ -1835,8 +1835,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_hn_gov
@@ -1877,8 +1876,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_gd_gov
@@ -1959,8 +1957,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_hi_gov
@@ -2041,8 +2038,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_yn_gov
@@ -2106,7 +2102,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2124,6 +2120,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.zwyw_list
+  link_selector: ul.zwyw_list a[href]
+  detail_pattern: /zwgk/xxfb/gsgg_\d+/\d+/t\d+_\d+\.html
 - id: sc_shaanxi_gov
   name: 陕西省人民政府
   level: province
@@ -2145,7 +2144,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2163,6 +2162,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.tabContent
+  link_selector: div.tabContent a[href]
+  detail_pattern: /zfxxgk/fdzdgknr/zcwj/nszfwj/szrz/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/nszfgz/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/gfxwj/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/nszfbgtwj/szbh/\d+/t\d+_\d+\.html
 - id: sc_gs_gov
   name: 甘肃省人民政府
   level: province
@@ -2201,8 +2203,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_qh_gov
@@ -2443,8 +2444,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_gov
@@ -2485,8 +2485,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hk_gov
@@ -2591,7 +2590,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2609,6 +2608,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.comlist1
+  link_selector: ul.comlist1 a[href]
+  detail_pattern: /ywtz/content/post_\d+\.html
 - id: gd_gxt
   name: 广东省工业和信息化厅
   level: province
@@ -2631,7 +2633,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2649,6 +2651,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.list
+  link_selector: div.list a[href]
+  detail_pattern: /zwgk/tzgg\d+/content/post_\d+\.html
 - id: gd_kjt
   name: 广东省科学技术厅
   level: province
@@ -2671,7 +2676,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2689,6 +2694,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.list
+  link_selector: ul.list a[href]
+  detail_pattern: /pro/tzgg/content/post_\d+\.html
 - id: gd_ny
   name: 广东省农业农村厅
   level: province
@@ -2711,7 +2719,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2729,6 +2737,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.list
+  link_selector: ul.list a[href]
+  detail_pattern: /zwgk/tzgg/content/post_\d+\.html
 - id: gd_swt
   name: 广东省商务厅
   level: province
@@ -2792,7 +2803,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2810,6 +2821,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.list
+  link_selector: ul.list a[href]
+  detail_pattern: /zwgk/gsgg/content/post_\d+\.html
 - id: js_fgw
   name: 江苏省发展改革委
   level: province
@@ -2829,7 +2843,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2846,10 +2860,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.container
+  link_selector: div.container a[href]
+  detail_pattern: /col/col\d+/index\.html
 - id: js_gxt
   name: 江苏省工业和信息化厅
   level: province
@@ -2945,7 +2961,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -2962,10 +2978,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: js_swt
   name: 江苏省商务厅
   level: province
@@ -3023,7 +3041,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3040,10 +3058,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: ul.index_xfbox1
+  link_selector: ul.index_xfbox1 a[href]
+  detail_pattern: /col/col\d+/index\.html
 - id: zj_fgw
   name: 浙江省发展改革委
   level: province
@@ -3063,7 +3083,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3080,10 +3100,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html|/col/col\d+/index\.html|/zwmhww/
 - id: zj_gxt
   name: 浙江省经济和信息化厅
   level: province
@@ -3141,7 +3163,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3158,10 +3180,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.bt-lanmu
+  link_selector: div.bt-lanmu a[href]
+  detail_pattern: /col/col\d+/index\.html
 - id: zj_ny
   name: 浙江省农业农村厅
   level: province
@@ -3181,7 +3205,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3198,10 +3222,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: zj_swt
   name: 浙江省商务厅
   level: province
@@ -3221,7 +3247,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3238,10 +3264,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.bt-box-1100
+  link_selector: div.bt-box-1100 a[href]
+  detail_pattern: /col/col\d+/index\.html
 - id: zj_rst
   name: 浙江省人力资源和社会保障厅
   level: province
@@ -3261,7 +3289,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3278,10 +3306,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: sd_fgw
   name: 山东省发展和改革委员会
   level: province
@@ -3301,7 +3331,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3318,10 +3348,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.bt-left
+  link_selector: div.bt-left a[href]
+  detail_pattern: /col/col\d+/index\.html
 - id: sd_gxt
   name: 山东省工业和信息化厅
   level: province
@@ -3341,7 +3373,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3358,10 +3390,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: sd_kjt
   name: 山东省科学技术厅
   level: province
@@ -3381,7 +3415,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3398,10 +3432,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#barrierfree_container'
+  link_selector: '#barrierfree_container a[href]'
+  detail_pattern: /col/col\d+/index\.html
 - id: sd_ny
   name: 山东省农业农村厅
   level: province
@@ -3421,7 +3457,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3439,6 +3475,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.news-list
+  link_selector: ul.news-list a[href]
+  detail_pattern: /zwgk/tzgg/tfwj/\d+/t\d+_\d+\.html
 - id: sd_swt
   name: 山东省商务厅
   level: province
@@ -3475,8 +3514,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sd_rst
@@ -3573,7 +3611,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3590,8 +3628,10 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
-    for https://gxt.henan.gov.cn/xxgk/wjjb/sgxtwj/\。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://gxt.henan.gov.cn/xxgk/wjjb/sgxtwj/\。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.mainBox
+  link_selector: div.mainBox a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
 - id: ha_kjt
   name: 河南省科学技术厅
   level: province
@@ -3611,7 +3651,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3629,6 +3669,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.box_list
+  link_selector: div.box_list a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
 - id: ha_ny
   name: 河南省农业农村厅
   level: province
@@ -3648,7 +3691,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3666,6 +3709,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.listbox
+  link_selector: div.listbox a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
 - id: ha_swt
   name: 河南省商务厅
   level: province
@@ -3685,7 +3731,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3703,6 +3749,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.zfxxgk_zdgkc
+  link_selector: div.zfxxgk_zdgkc a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
 - id: ha_rst
   name: 河南省人力资源和社会保障厅
   level: province
@@ -3722,7 +3771,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3740,6 +3789,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: table.tjibjj
+  link_selector: table.tjibjj a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
 - id: hb_gxt
   name: 湖北省经济和信息化厅
   level: province
@@ -3759,7 +3811,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3777,6 +3829,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.col-md-9
+  link_selector: div.col-md-9 a[href]
+  detail_pattern: /fbjd/zc/qtzdgkwj/gwfb/\d+/t\d+_\d+\.shtml
 - id: hb_kjt
   name: 湖北省科学技术厅
   level: province
@@ -3851,8 +3906,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hb_swt
@@ -3874,7 +3928,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3891,10 +3945,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#share'
+  link_selector: '#share a[href]'
+  detail_pattern: /zfxxgk/zc/qtzdgkwj/\d+/t\d+_\d+\.shtml
 - id: hb_rst
   name: 湖北省人力资源和社会保障厅
   level: province
@@ -3914,7 +3970,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3932,6 +3988,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.col-xs-12
+  link_selector: div.col-xs-12 a[href]
+  detail_pattern: /bmdt/dtyw/tzgg/\d+/t\d+_\d+\.shtml|/bmdt/ztzl/ywzl/jlsf/gsgg_/\d+/t\d+_\d+\.shtml
 - id: hn_fgw
   name: 湖南省发展和改革委员会
   level: province
@@ -3951,7 +4010,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -3969,6 +4028,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.hy-list-text
+  link_selector: div.hy-list-text a[href]
+  detail_pattern: /fgw/xxgk_\d+/tzgg/\d+/t\d+_\d+\.html
 - id: hn_gxt
   name: 湖南省工业和信息化厅
   level: province
@@ -4005,8 +4067,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hn_kjt
@@ -4045,8 +4106,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hn_ny
@@ -4085,8 +4145,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hn_swt
@@ -4125,8 +4184,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: hn_rst
@@ -4165,8 +4223,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: ah_fgw
@@ -4226,7 +4283,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4244,6 +4301,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.ls-column-list
+  link_selector: div.ls-column-list a[href]
+  detail_pattern: /sy/wjgg/\d+\.html
 - id: ah_kjt
   name: 安徽省科学技术厅
   level: province
@@ -4301,7 +4361,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4319,6 +4379,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.doc_list
+  link_selector: ul.doc_list a[href]
+  detail_pattern: /snzx/tzgg/\d+\.html
 - id: ah_swt
   name: 安徽省商务厅
   level: province
@@ -4355,8 +4418,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: ah_rst
@@ -4378,7 +4440,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4396,6 +4458,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.ls-column-list
+  link_selector: div.ls-column-list a[href]
+  detail_pattern: /zxzx/gsgg/\d+\.html
 - id: fj_fgw
   name: 福建省发展和改革委员会
   level: province
@@ -4415,7 +4480,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4433,6 +4498,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.pad_l_base
+  link_selector: div.pad_l_base a[href]
+  detail_pattern: /zwgk/gsgg/\d+/t\d+_\d+\.htm|/zfxxgkzl/zfxxgkml/yzdgkdqtxx/\d+/t\d+_\d+\.htm|/ztzl/jgzf/ssjygk/\d+/t\d+_\d+\.htm
 - id: fj_gxt
   name: 福建省工业和信息化厅
   level: province
@@ -4452,7 +4520,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4470,6 +4538,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.pad_l_base
+  link_selector: div.pad_l_base a[href]
+  detail_pattern: /zwgk/zfxxgk/fdzdgknr/gzdt/\d+/t\d+_\d+\.htm|/zwgk/zfxxgk/fdzdgknr/bszn/\d+/t\d+_\d+\.htm|/zwgk/zfxxgk/fdzdgknr/dbwyzs/jytabl/\d+/t\d+_\d+\.htm
 - id: fj_kjt
   name: 福建省科学技术厅
   level: province
@@ -4489,7 +4560,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4507,6 +4578,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.pad_l_base
+  link_selector: div.pad_l_base a[href]
+  detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
 - id: fj_ny
   name: 福建省农业农村厅
   level: province
@@ -4526,7 +4600,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4543,10 +4617,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: ul.clearflx
+  link_selector: ul.clearflx a[href]
+  detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
 - id: fj_swt
   name: 福建省商务厅
   level: province
@@ -4566,7 +4642,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4584,6 +4660,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.gl-ul
+  link_selector: ul.gl-ul a[href]
+  detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
 - id: fj_rst
   name: 福建省人力资源和社会保障厅
   level: province
@@ -4603,7 +4682,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4621,6 +4700,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.ejove
+  link_selector: div.ejove a[href]
+  detail_pattern: /zw/gsgg/\d+/t\d+_\d+\.htm
 - id: jx_fgw
   name: 江西省发展和改革委员会
   level: province
@@ -4657,8 +4739,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: jx_gxt
@@ -4697,9 +4778,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
-    for https://gxt.jiangxi.gov.cn/jxsgyhxxht/gztz/bmjs/content/content_1860102675804655616.html。按
-    AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://gxt.jiangxi.gov.cn/jxsgyhxxht/gztz/bmjs/content/content_1860102675804655616.html。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: jx_kjt
   name: 江西省科学技术厅
   level: province
@@ -4736,8 +4815,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: jx_ny
@@ -4776,8 +4854,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: jx_swt
@@ -4816,8 +4893,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: jx_rst
@@ -4856,9 +4932,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
-    for https://rst.jiangxi.gov.cn/jxsrlzyhshbzt/col/col47810/{{pcUrl}}。按 AGENTS.md
-    不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://rst.jiangxi.gov.cn/jxsrlzyhshbzt/col/col47810/{{pcUrl}}。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: he_fgw
   name: 河北省发展和改革委员会
   level: province
@@ -4916,7 +4990,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4933,10 +5007,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#gxt-ej-right'
+  link_selector: '#gxt-ej-right a[href]'
+  detail_pattern: /hbgyhxxht/xwzx\d+/tzgg\d+/\d+/index\.html
 - id: he_kjt
   name: 河北省科学技术厅
   level: province
@@ -4956,7 +5032,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -4973,10 +5049,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: '#zhengwu_right'
+  link_selector: '#zhengwu_right a[href]'
+  detail_pattern: /hebkjt/xwzx\d+/tzgg\d+/sttz\d+/\d+/index\.html
 - id: he_ny
   name: 河北省农业农村厅
   level: province
@@ -4996,7 +5074,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -5014,6 +5092,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: ul.column-list
+  link_selector: ul.column-list a[href]
+  detail_pattern: /html/www//tzgg/\d+\.html
 - id: he_swt
   name: 河北省商务厅
   level: province
@@ -5050,8 +5131,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sn_fgw
@@ -5111,7 +5191,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -5129,6 +5209,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.am-u-lg-9
+  link_selector: div.am-u-lg-9 a[href]
+  detail_pattern: /xw/tzgg/\d+/t\d+_\d+\.html
 - id: sn_kjt
   name: 陕西省科学技术厅
   level: province
@@ -5148,7 +5231,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -5165,10 +5248,12 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  list_selector: div.rt
+  link_selector: div.rt a[href]
+  detail_pattern: /kjdt/tzgg/\d+/t\d+_\d+\.html
 - id: sn_ny
   name: 陕西省农业农村厅
   level: province
@@ -5188,7 +5273,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -5206,6 +5291,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.con-rt
+  link_selector: div.con-rt a[href]
+  detail_pattern: /xxgk/gknr/zc/flfg/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/twj/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/tbwj/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/txzgfxwj/\d+/t\d+_\d+\.html
 - id: sn_swt
   name: 陕西省商务厅
   level: province
@@ -5263,7 +5351,7 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
+  status: enabled
   enabled: false
   check_robots: true
   robots_checked_at: null
@@ -5281,6 +5369,9 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  list_selector: div.service-page
+  link_selector: div.service-page a[href]
+  detail_pattern: /sy/tzgg/\d+/t\d+_\d+\.html|/xw/ztzl/zxzt/zkzl/\d+/\d+sydwzp/\d+/t\d+_\d+\.html
 - id: cq_fgw
   name: 重庆市发展和改革委员会
   level: province
@@ -5317,8 +5408,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_gxt
@@ -5357,8 +5447,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_kjt
@@ -5397,8 +5486,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_ny
@@ -5437,8 +5525,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_swt
@@ -5477,8 +5564,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: cq_rst
@@ -5517,8 +5603,7 @@ sources:
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
-    the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
 - id: sc_fgw
