@@ -106,7 +106,12 @@ def main() -> int:
                 source[key] = value
                 changed = True
         if args.enable and changed:
+            # status 和 enabled 是同一个概念的两个字段，必须一起改。
+            # 早先只改 status，49 个源就处于 status=enabled / enabled=False 的
+            # 矛盾态——采集器按 enabled 过滤，于是它们一个都没真跑起来，
+            # 而配置看上去"101 个已启用"。这类不一致必须有测试盯着。
             source["status"] = "enabled"
+            source["enabled"] = True
         if changed:
             touched += 1
     path.write_text(

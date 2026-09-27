@@ -706,7 +706,7 @@ sources:
   focus_level: high
   retention_class: policy
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   max_items: 20
   detail_pattern: /gk/zfxxgkpt/fdzdgknr/\d+/t\d+_\d+\.shtml
@@ -1406,7 +1406,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1489,7 +1489,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1531,7 +1531,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1615,7 +1615,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2103,7 +2103,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2145,7 +2145,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2591,7 +2591,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2634,7 +2634,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2677,7 +2677,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2720,7 +2720,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2804,7 +2804,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2844,7 +2844,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2962,7 +2962,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3042,7 +3042,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3084,7 +3084,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3164,7 +3164,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3206,7 +3206,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3248,7 +3248,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3290,7 +3290,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3332,7 +3332,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3374,7 +3374,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3416,7 +3416,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3458,7 +3458,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3612,7 +3612,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3652,7 +3652,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3692,7 +3692,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3732,7 +3732,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3772,7 +3772,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3812,7 +3812,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3929,7 +3929,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3971,7 +3971,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4011,7 +4011,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4284,7 +4284,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4362,7 +4362,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4441,7 +4441,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4481,7 +4481,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4521,7 +4521,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4561,7 +4561,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4601,7 +4601,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4643,7 +4643,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4683,7 +4683,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4991,7 +4991,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5033,7 +5033,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5075,7 +5075,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5192,7 +5192,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5232,7 +5232,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5274,7 +5274,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5352,7 +5352,7 @@ sources:
   retention_days: 365
   transient_retention_days: 30
   status: enabled
-  enabled: false
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null

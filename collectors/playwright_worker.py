@@ -82,6 +82,42 @@ def _launch(executable_path: str | None) -> Any:
     return session, browser, context, context.new_page()
 
 
+def _settle(page: Any, timeout_ms: int) -> None:
+    """等页面真正停下来，再取 HTML。
+
+    goto(wait_until="domcontentloaded") 只保证 DOM 就绪，子资源和跳转链还在跑，
+    这时 page.content() 会抛 "the page is navigating and changing the content"。
+    实测 chengdu.gov.cn 静态 412、渲染也拿不到内容，根因就是这个竞态：快照落在
+    <body></body> 空页上，于是"被反爬拦截"和"页面还没加载完"表现完全一样。
+
+    先补一个 load 状态（不抛错，慢页面就跳过），再对仍在跳转的情况重试取快照。
+    """
+    try:
+        page.wait_for_load_state("load", timeout=min(timeout_ms, 20000))
+    except Exception:  # noqa: BLE001 - 慢页面不是失败，取不到再说
+        pass
+
+
+def _safe_content(page: Any, timeout_ms: int, attempts: int = 3) -> str:
+    """取页面 HTML，对"仍在跳转"重试。
+
+    有上限而不是死等：真的在无限跳转的页面本来就该放弃，不能把 300s 预算耗光。
+    """
+    last: str = ""
+    for attempt in range(attempts):
+        try:
+            return page.content()
+        except Exception as exc:  # noqa: BLE001
+            last = f"{type(exc).__name__}: {exc}"
+            try:
+                page.wait_for_load_state("load", timeout=min(timeout_ms, 10000))
+            except Exception:  # noqa: BLE001
+                pass
+            if attempt + 1 < attempts:
+                page.wait_for_timeout(500 * (attempt + 1))
+    raise RuntimeError(f"page stayed unstable after {attempts} attempts: {last}")
+
+
 def _worker(inbox: Any) -> None:
     """Serve render tasks until the parent closes the pipe."""
     global _PAGE
@@ -104,10 +140,15 @@ def _worker(inbox: Any) -> None:
             # wait_ms=0 and 5000, 0.9s vs 8.0s per page.
             if wait_ms and wait_until != "networkidle":
                 page.wait_for_timeout(wait_ms)
+            # domcontentloaded 只等 DOM，子资源与跳转链仍在跑，这时 page.content()
+            # 会抛 "the page is navigating and changing the content"。
+            # chengdu.gov.cn 就是这样：快照拿到的是 <body></body> 空页，
+            # 于是"反爬拦截"和"页面还没加载完"长得一模一样，排查绕了很久。
+            _settle(page, timeout_ms)
             if mode == "collect":
                 inbox.send({"ok": True, "data": _extract_from_dom(page, pages, timeout_ms)})
                 continue
-            collected = [page.content()]
+            collected = [_safe_content(page, timeout_ms)]
             seen = {collected[0]}
             for _ in range(max(0, pages - 1)):
                 nxt = _go_to_next_page(page)
@@ -117,7 +158,7 @@ def _worker(inbox: Any) -> None:
                     page.wait_for_load_state("networkidle", timeout=min(timeout_ms, 15000))
                 except Exception:  # noqa: BLE001 - a slow widget is not fatal
                     pass
-                html = page.content()
+                html = _safe_content(page, timeout_ms)
                 if html in seen:
                     break
                 seen.add(html)
