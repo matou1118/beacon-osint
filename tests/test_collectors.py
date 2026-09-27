@@ -275,6 +275,9 @@ class NationalCollectorTests(unittest.TestCase):
             "机构沿革 - 四川省商务厅",
             "机关简介 - 四川省商务厅",
             "网站地图",
+            # 只有机构名、没有站点后缀的：sn_fgw 曾漏进过这两条
+            "陕西省发展和改革委员会",
+            "陕西省发改委",
         ]
         must_pass = [
             "浙江省基础测绘办法",
@@ -295,6 +298,56 @@ class NationalCollectorTests(unittest.TestCase):
             self.assertTrue(collector._is_section_page(title), f"应拦下栏目页：{title}")
         for title in must_pass:
             self.assertFalse(collector._is_section_page(title), f"误杀真公告：{title}")
+
+    def test_platform_entry_pages_are_rejected_without_hitting_real_files(self) -> None:
+        """平台入口页要拦，含平台词的真文件不能拦。
+
+        兜底率降到 22% 后抽样发现，剩下的兜底里绝大多数不是分类器的问题，而是
+        采集侧把业务入口当公告存进来了：「陕西省外商投资公共信息服务平台」
+        「青海数智信访一网通服务平台」「湖北省科学技术奖励服务平台」。
+
+        两次误伤都是真文件，所以这两条边界必须钉住：
+        1. 不能"含平台词就算"——「宁波?12345政务服务便民热线管理办法」5419 字、
+           「省商务厅智慧商务综合管理平台国产化适配改造…中标公告」都含平台类词；
+        2. 比选/招标/采购类标题不含公文动词（「项目比选公告」不是「…的公告」），
+           但仍是真公告。
+        """
+        collector = self._list_only_collector("https://www.example.gov.cn/list.shtml")
+        must_block = [
+            "陕西省外商投资公共信息服务平台",
+            "青海数智信访“一网通”服务平台",
+            "云南省网上信访投诉平台",
+            "湖北省科学技术奖励服务平台",
+            "业务综合服务平台",
+            "湖北省科学技术厅 湖北省科学技术奖励服务平台",
+        ]
+        must_pass = [
+            "宁波“12345”政务服务便民热线管理办法",
+            "省商务厅智慧商务综合管理平台国产化适配改造（2026-2027年）中标公告",
+            "民营经济专题宣传服务项目比选公告",
+            "广东省商务厅关于做好2026年“粤贸全球”广东商品境外展览平台相关工作的通知",
+            "陕西省科学技术厅关于发布第四批概念验证和中试平台能力清单的通知",
+        ]
+        for title in must_block:
+            self.assertTrue(collector._is_section_page(title), f"应拦下入口页：{title}")
+        for title in must_pass:
+            self.assertFalse(collector._is_section_page(title), f"误杀真文件：{title}")
+
+    def test_short_titles_are_only_judged_by_length_when_a_site_suffix_is_present(self) -> None:
+        """短标题只能在带站点名后缀时才按长度拦。
+
+        踩过的坑：把长度规则写成无条件生效，于是「工作动态」(4字)、
+        「锦江区公告」(5字) 全被拦掉——而 tests 里
+        test_real_announcements_are_not_rejected 明确要求放行它们，真实公告标题
+        确实可以很短。门户页会把自己的名字挂在标题后面，那种才敢按长度判。
+        """
+        collector = self._list_only_collector("https://www.example.gov.cn/list.shtml")
+        for title in ("工作动态", "锦江区公告", "信息公开", "报废资产处置公告"):
+            self.assertFalse(collector._is_section_page(title), f"短标题被误拦：{title}")
+        # 同样短的标题，带站点名后缀就是栏目页
+        for title in ("政民互动 - 湖北省人民政府门户网站",
+                      "政策文件 - 湖北省人民政府门户网站"):
+            self.assertTrue(collector._is_section_page(title), f"应拦下：{title}")
 
     def test_content_excludes_site_chrome_when_trafilatura_available(self) -> None:
         """抽出来的正文不能把导航/页脚一起吞进去。
