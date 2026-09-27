@@ -113,16 +113,45 @@ def score_category(text: str, spec: Mapping[str, Any]) -> tuple[int, str]:
     return score, best_subcategory
 
 
-def classify(record: Mapping[str, Any], config: Mapping[str, Any] | None = None) -> dict[str, str]:
-    rules = config if isinstance(config, dict) and config.get("categories") else load_category_rules()
-    defaults = rules.get("defaults") or {}
-    title_weight, body_weight, specific_bonus = weights_from(rules)
-    title = _normalize(record.get("title"))
-    body = body_text(record.get("content"))
-    best_category = str(defaults.get("category_l1") or "其他")
-    best_subcategory = str(defaults.get("category_l2") or "未分类")
+# 强文种词：出现即定 category_l1，不再和主题词比大小。
+# 审计 1465 条兜底记录时按词频统计得出，覆盖 78%：
+#   通知 31% / 公示 13% / 公告 12% / 通告 7% / 名单 6% / 规划 5% / 办法 4%。
+# 排在前面的是"形态最明确"的：一份文件只会是一种公示/名单/批复。
+# 通知/公告故意不放这里——它们太泛，一份招标公告也是"公告"，
+# 强判会把招标信息全推进"政策发布/通知"。这类交给主题计分。
+STRONG_DOC_TYPES = (
+    ("征求意见", ("征求意见", "公开征求", "意见稿")),
+    ("批复", ("批复", "核准批复", "批复同意")),
+    ("名单", ("名单", "入选名单", "拟录用名单", "中选名单", "结果名单")),
+    ("公示", ("公示", "公示期", "公示名单")),
+    ("解读", ("解读", "政策问答", "答记者问", "图解")),
+)
+
+
+def _strong_doc_type(title: str, rules: Mapping[str, Any]) -> tuple[str, str] | None:
+    """标题里出现强文种词就返回 (一级, 二级)，否则 None。"""
+    for subcategory, keywords in STRONG_DOC_TYPES:
+        if not any(_normalize(keyword) and _normalize(keyword) in title
+                   for keyword in keywords):
+            continue
+        # 子类名要在配置的对应一级分类下确实存在，否则退回不判。
+        for category, spec in (rules.get("categories") or {}).items():
+            if not isinstance(spec, dict):
+                continue
+            subs = spec.get("subcategories") or {}
+            if subcategory in subs:
+                return str(category), subcategory
+    return None
+
+
+def _best_match(title: str, body: str, categories: Mapping[str, Any],
+                title_weight: int, body_weight: int,
+                specific_bonus: int) -> tuple[str, str, int]:
+    """在给定的一组分类里找最高分。返回 (一级, 二级, 分数)。"""
+    best_category = ""
+    best_subcategory = ""
     best_score = 0
-    for category, spec in rules["categories"].items():
+    for category, spec in categories.items():
         if not isinstance(spec, dict):
             continue
         title_score, title_sub = score_category(title, spec)
@@ -131,13 +160,126 @@ def classify(record: Mapping[str, Any], config: Mapping[str, Any] | None = None)
         if title_score and category in SPECIFIC_CATEGORIES:
             score += specific_bonus
         if score > best_score:
-            best_category, best_subcategory, best_score = str(category), title_sub or body_sub, score
-    by_keyword = {"category_l1": best_category, "category_l2": best_subcategory}
+            best_category = str(category)
+            best_subcategory = title_sub or body_sub
+            best_score = score
+    return best_category, best_subcategory, best_score
+
+
+def _news_or_political(title: str, rules: Mapping[str, Any]) -> tuple[str, str] | None:
+    """时政通稿/新闻/活动体裁。命中就返回 (一级, 二级)。
+
+    只看标题。判别力强且特征明确：领导人姓名 + 国事动作，或记者会/发布会/座谈会
+    这类活动词。放在第 1 层之前，因为第 1 层的关键词是单字级（"国"、"空军"），
+    会被地名、机构名、场所名误触发。
+    """
+    # 优先复用第 1 层已有的「新闻动态」，它在合成基线里就是时政/播报的归属。
+    target = (rules.get("新闻动态") or {}).get("subcategories") or {}
+    if not target:
+        target = (rules.get("非公告体裁") or {}).get("subcategories") or {}
+    if not target:
+        return None
+    has_leader = any(h in title for h in
+                     ("习近平", "李强", "赵乐际", "王沪宁", "蔡奇", "丁薛祥", "李希"))
+    has_action = any(h in title for h in
+                     ("抵达", "国事访问", "会晤", "书面向", "会见", "接待",
+                      "出席", "考察", "记者会", "记者见面会", "新闻发布会",
+                      "座谈会", "部长对话", "视频会"))
+    if has_leader and has_action and "时政要闻" in target:
+        return "新闻动态", "时政要闻"
+    # 第 1 层「新闻动态」只有 时政要闻/行业动态/数据播报/媒体报道 四个子类，
+    # 没有「新闻通稿」。活动/会议类归「行业动态」——它的词表本来就含
+    # 座谈会/在京举行/圆满落幕 这类。
+    ordered = [name for name in ("时政要闻", "行业动态", "数据播报", "媒体报道")
+               if name in target]
+    ordered += [name for name in ("新闻通稿", "活动新闻", "数据播报", "时政要闻")
+                if name in target and name not in ordered]
+    # 活动/会议特征词由这里自己持有，不指望第 1 层词表覆盖。
+    # 实测「国新办就…举行中外记者见面会」里命中的是"举行"，而第 1 层
+    # 「新闻动态/行业动态」的词表是"新闻发布会""在京举行"——词形对不上，
+    # 结果一个子类都没命中，整条掉到第 2 层的"非公告体裁/新闻通稿"。
+    activity = any(h in title for h in
+                   ("举行", "举办", "召开", "开幕", "启动", "在京", "出席",
+                    "记者会", "记者见面会", "新闻发布会", "座谈会", "论坛",
+                    "大会", "部长对话", "视频会", "调研", "考察"))
+    if activity and not any(w in title for w in
+                            ("的通知", "的公告", "的通告", "的批复", "的公示")):
+        for preferred in ("行业动态", "新闻通稿", "活动新闻"):
+            if preferred in target:
+                return "新闻动态", preferred
+    for subcategory in ordered:
+        keywords = target.get(subcategory) or []
+        hits = [_normalize(k) for k in keywords if _normalize(k) and _normalize(k) in title]
+        if len(hits) >= 2 and not any(
+                w in title for w in ("的通知", "的公告", "的通告", "的批复")):
+            return "新闻动态", subcategory
+    return None
+
+
+def classify(record: Mapping[str, Any], config: Mapping[str, Any] | None = None) -> dict[str, str]:
+    rules = config if isinstance(config, dict) and config.get("categories") else load_category_rules()
+    defaults = rules.get("defaults") or {}
+    title_weight, body_weight, specific_bonus = weights_from(rules)
+    title = _normalize(record.get("title"))
+    body = body_text(record.get("content"))
+
+    # 文种（文件形态）先判，且优先于主题。
+    #
+    # 为什么必须分两层计分，而不是把文种词混进同一个池子比大小：
+    # "生态环境部关于...拟作出的建设项目环境影响评价文件审批意见的公示" 里，
+    # 「公示」只命中 1 个关键词，而「环境影响评价」「生态」在生态环保下命中 2 个，
+    # 乘上 title_weight 后主题分更高——结果同源同类的三条公示被拆成
+    # 「公示公告/公示」和「行业政策/监管政策」两个类，用户按公示查就漏了。
+    #
+    # 判据：文种词互斥且可靠（一份文件只有一个文种），主题词不互斥
+    # （一条通知可以同时讲项目、科技、资金）。所以文种出现时直接定调。
+    merged_rules = dict(rules["categories"])
+    merged_rules.update(rules.get("fallback_categories") or {})
+
+    # 时政/新闻/活动体裁先拦一道，再进第 1 层。
+    #
+    # 这不是新增判别力，是补一个第 1 层既有的漏洞：「军队招录/军队院校招生」的
+    # 关键词里有「空军」，于是「习近平抵达美国安德鲁斯空军基地发表书面讲话」被判成
+    # 军校招生；「国新办就…举行中外记者见面会」会被「国」字命中。
+    # 这些是时政通稿，压根不是任何一种招录文件。
+    #
+    # 为什么不改原配置去掉「空军」：那 13 类是合成基线 95% 的依赖，动它要重新调参。
+    #
+    # 归到第 1 层的「新闻动态/时政要闻」而不是第 2 层的「非公告体裁」：第 1 层本来
+    # 就有这个子类，tests/test_extractors.py 也明确期望时政落在这里。另建一个同名
+    # 类会让同一批记录在两个地方各有一份，无法统一查询。
+    news_hit = _news_or_political(title, merged_rules)
+    if news_hit is not None:
+        return {"category_l1": news_hit[0], "category_l2": news_hit[1]}
+
+    doc_hit = _strong_doc_type(title, merged_rules)
+    if doc_hit is not None:
+        return {"category_l1": doc_hit[0], "category_l2": doc_hit[1]}
+
+    # 第 1 层：原始 13 类。合成基线 95% 全部依赖这一层，行为必须保持不变。
+    category, subcategory, score = _best_match(
+        title, body, rules["categories"], title_weight, body_weight, specific_bonus)
+    if score > 0:
+        return {"category_l1": category, "category_l2": subcategory}
+
+    # 第 2 层：政务文种。真实语料里 93% 原本落兜底，正好全部由这一层接管。
+    # 分层而不是调权重，是因为两套数据的分布不同（详见 config/category_rules.yaml
+    # 的 scoring.tuned_on）：合成标题多是"关于印发XX的通知"这种模板句，
+    # 真实标题里"公示/名单/批复/产品召回"才是主信号。放进同一个池子会互相抢。
+    fallback = rules.get("fallback_categories") or {}
+    if fallback:
+        category, subcategory, score = _best_match(
+            title, body, fallback, title_weight, body_weight, specific_bonus)
+        if score > 0:
+            return {"category_l1": category, "category_l2": subcategory}
+
     # The issuing body is the stronger signal, but only when the keyword rules
     # found nothing: a title like "公务员招录公告" from 人社厅 is an exam notice,
     # not a department bucket.
-    if best_score == 0:
-        by_department = classify_by_department(record)
-        if by_department:
-            return {"category_l1": by_department["category_l1"], "category_l2": by_department["category_l2"]}
-    return by_keyword
+    by_department = classify_by_department(record)
+    if by_department:
+        return by_department
+    return {
+        "category_l1": str(defaults.get("category_l1") or "其他"),
+        "category_l2": str(defaults.get("category_l2") or "未分类"),
+    }

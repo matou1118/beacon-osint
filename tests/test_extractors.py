@@ -170,6 +170,79 @@ class ExtractorTests(unittest.TestCase):
                 self.assertEqual(result["category_l1"], expected_l1)
                 self.assertEqual(result["category_l2"], expected_l2)
 
+    def test_political_news_is_not_mistaken_for_military_admissions(self) -> None:
+        """时政通稿不能被第 1 层的单字关键词带偏。
+
+        踩过的坑：第 1 层「军队招录/军队院校招生」的关键词里有「空军」，于是
+        「习近平抵达美国安德鲁斯空军基地发表书面讲话」被判成军校招生。
+        「国新办就...举行中外记者见面会」同样会被「国」字命中。
+        这类标题是时政通稿，不是任何一种招录文件。
+
+        不能靠删掉原配置的「空军」来修——那 13 类是合成基线 95% 的依赖。
+        所以在第 1 层之前加一道特征更强的拦截，且必须落在第 1 层已有的
+        「新闻动态/时政要闻」里（既有测试也这么期望），不能另建同名类。
+        """
+        rules = load_category_rules()
+        # 领导人活动 -> 时政要闻；记者会/座谈会 -> 行业动态（第 1 层只有这四个
+        # 子类，没有"新闻通稿"。活动特征词由拦截逻辑自己持有，不指望第 1 层
+        # 词表覆盖——实测"举行中外记者见面会"里的"举行"和词表里的"新闻发布会"
+        # 词形对不上，整条会掉到第 2 层。）
+        leader_titles = (
+            "习近平抵达美国安德鲁斯空军基地发表书面讲话 - 中华人民共和国民政部",
+            "习近平抵达华盛顿对美国进行国事访问 - 中华人民共和国民政部",
+            "习近平：在加强基础研究座谈会上的讲话",
+        )
+        for title in leader_titles:
+            with self.subTest(title=title):
+                got = classify({"title": title}, rules)
+                self.assertEqual(got["category_l1"], "新闻动态", f"{title} 归错了大类")
+                self.assertEqual(got["category_l2"], "时政要闻", f"{title} 子类错了")
+        with self.subTest(title="国新办举行中外记者见面会"):
+            got = classify(
+                {"title": "国新办就“促进能源绿色转型与供应保障”举行中外记者见面会"}, rules)
+            self.assertEqual(got["category_l1"], "新闻动态")
+            self.assertIn(got["category_l2"], ("行业动态", "新闻通稿"))
+
+    def test_fallback_layer_only_runs_when_layer_one_finds_nothing(self) -> None:
+        """第 2 层（政务文种）不能抢第 1 层已经分对的记录。
+
+        两层的数据分布不同，这是分层的全部理由：
+        - 第 1 层 13 类是在合成集上调的（scoring.tuned_on 写明 L1=98.3%），
+          合成标题多为「关于印发XX实施方案的通知」这种模板句；
+        - 第 2 层 9 类是从 1465 条真实兜底记录审计出来的，真实标题里
+          公示/名单/批复/产品召回 才是主信号。
+        混进同一个计分池，合成基线会从 95% 掉到 61.7%，L2 掉到 57%——
+        逐词打补丁修了三轮（通知→印发→方案）也只到 79.2%，方向就是错的。
+        """
+        rules = load_category_rules()
+        self.assertTrue(rules.get("fallback_categories"), "配置里应该有第 2 层")
+        self.assertNotIn("政策发布", rules["categories"],
+                         "第 2 层的类不能同时出现在第 1 层")
+        for title, expected in (
+            ("关于开展2026年高职单招报名工作的通知", "招生信息"),
+            ("关于印发标准制修订实施方案的通知", "行业政策"),
+        ):
+            with self.subTest(title=title):
+                self.assertEqual(classify({"title": title}, rules)["category_l1"], expected)
+
+    def test_generic_document_words_are_not_used_as_category_keywords(self) -> None:
+        """「公告」「通知」「印发」这类通用词不能当子类关键词。
+
+        「公告」在政务标题里近乎通用：招标公告、结果公告、许可公告、注销公告
+        都是「公告」。实测 174 条里 85 条只因这个词落进「政策发布/通告」，抽检
+        看多数应是许可/结果/比选。「印发」同理——它不是文种，是公文流程里的一个
+        动作，几乎每份正式文件都写着「现将……印发」，判别力为零。
+        """
+        rules = load_category_rules()
+        generic = {"公告", "通知", "印发", "的通知", "的公告", "的通告", "的决定"}
+        for layer in ("categories", "fallback_categories"):
+            for name, spec in (rules.get(layer) or {}).items():
+                for sub, words in ((spec.get("subcategories") or {}).items()):
+                    for word in words or []:
+                        self.assertNotIn(
+                            word, generic,
+                            f"{layer}/{name}/{sub} 用了判别力为零的通用词「{word}」")
+
     def test_category_rules_ignore_whitespace_and_case(self) -> None:
         rules = load_category_rules()
         self.assertEqual(
