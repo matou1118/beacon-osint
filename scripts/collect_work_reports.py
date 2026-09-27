@@ -25,11 +25,20 @@ sys.path.insert(0, ".")
 
 from collectors.work_report_collector import WorkReportCollector, build_report_records
 from storage.db import Database
+from extractors.work_report_metrics import EXTRACT_VERSION
 from work_report_sources import WORK_REPORT_SOURCES
 
 
-def upsert_report(db: Database, record: dict) -> tuple[int, str]:
-    """按 (region_code, year) 落库。返回 (report_id, inserted|updated)。"""
+def upsert_report(db: Database, record: dict, extract_version: str) -> tuple[int, str]:
+    """按 (region_code, year) 落库。返回 (report_id, inserted|updated|unchanged)。
+
+    指标与专题命中**每次都重建**。曾经试过只在正文变化时重建，加了个抽取
+    版本号做守卫，结果改了抽取逻辑忘了改版本号就失效：修好"人均 GDP 被当成
+    GDP 总量"之后重跑 55 份全部 unchanged，指标停留在旧规则的结果上，而
+    交叉验证里那个 5.67万亿元 vs 3.2万美元 的冲突也一直没消失。
+    抽取就是在已存正文上跑正则，很便宜，守卫省不下什么却引入一个静默失效点。
+    正文变了才覆盖 work_reports，指标一律重建。
+    """
     from sqlalchemy import select
 
     from storage.models import WorkReport, WorkReportMetric, WorkReportTopic
@@ -47,19 +56,16 @@ def upsert_report(db: Database, record: dict) -> tuple[int, str]:
             session.add(report)
             session.flush()
             action = "inserted"
+        elif existing.content_hash != record["content_hash"]:
+            for key, value in record.items():
+                setattr(existing, key, value)
+            existing.fetched_at = now
+            action = "updated"
         else:
-            # 正文或分节变化时覆盖，指标随后重建
-            if existing.content_hash != record["content_hash"]:
-                for key, value in record.items():
-                    setattr(existing, key, value)
-                existing.fetched_at = now
-                action = "updated"
-            else:
-                return existing.id, "unchanged"
+            action = "unchanged"
             report = existing
         session.flush()
         report_id = report.id
-        # 指标与专题命中整体重建：抽取规则升级后旧值必须跟着变
         session.query(WorkReportMetric).filter(
             WorkReportMetric.report_id == report_id).delete()
         session.query(WorkReportTopic).filter(
@@ -131,12 +137,15 @@ def main() -> int:
                       f"{len(report['sections'] or [])}节  指标{len(metrics)}  "
                       f"专题{len(topics)}  {report['title'][:26]}", flush=True)
                 continue
-            report_id, action = upsert_report(db, report)
+            report_id, action = upsert_report(db, report, EXTRACT_VERSION)
             totals[action] = totals.get(action, 0) + 1
-            if action != "unchanged":
-                save_metrics(db, report_id, metrics, topics)
-                totals["metrics"] += len(metrics)
-                totals["topics"] += len(topics)
+            # 无条件重建。upsert_report 每次都会清空该报告的指标与专题命中，
+            # 所以这里必须无条件写回——早先写成 `if action != "unchanged"`，
+            # 与"总是重建"配在一起就成了删掉不写回，指标从 297 条掉到 51 条、
+            # 专题命中归零。
+            save_metrics(db, report_id, metrics, topics)
+            totals["metrics"] += len(metrics)
+            totals["topics"] += len(topics)
             print(f"    {report['year']}  {report['char_count']:>6}字  "
                   f"{len(report['sections'] or [])}节  指标{len(metrics)}  "
                   f"专题{len(topics)}  [{action}]", flush=True)

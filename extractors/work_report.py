@@ -47,6 +47,11 @@ def _classify_section(heading: str) -> str:
     return "other"
 
 
+def _split_cells(line: str) -> list[str]:
+    """把一行按 2+ 空格切成格子，丢掉空格子。"""
+    return [cell.strip() for cell in _CELL_SPLIT.split(line) if cell.strip()]
+
+
 def split_sections(text: str) -> tuple[str, list[dict[str, Any]]]:
     """按一级标题切段。返回 (前言, sections)。
 
@@ -54,42 +59,23 @@ def split_sections(text: str) -> tuple[str, list[dict[str, Any]]]:
     通常有一段"现在，我代表……人民政府，向大会报告政府工作"的套话，不属于
     任何章节，单列出来免得污染 review 段。
     """
-    lines = text.splitlines()
+    matches = list(_INLINE_HEADING.finditer(text or ""))
+    if not matches:
+        return (text or "").strip(), []
     sections: list[dict[str, Any]] = []
-    preface: list[str] = []
-    current: dict[str, Any] | None = None
-    buffer: list[str] = []
-
-    for line in lines:
-        stripped = line.strip()
-        match = _HEADING_RE.match(stripped) if stripped else None
-        # 标题本身要够短且不能以句号收尾，否则正文里"一、xxx。"也会被当成标题
-        if match and len(stripped) <= 60 and not stripped.endswith(("。", "；", "!")):
-            if current is not None:
-                current["text"] = "\n".join(buffer).strip()
-                current["chars"] = len(current["text"])
-                sections.append(current)
-            current = {
-                "order": len(sections) + 1,
-                "heading": stripped,
-                "number": match.group(1),
-                "name": match.group(2).strip(),
-                "key": _classify_section(match.group(2)),
-            }
-            buffer = []
-            continue
-        if current is None:
-            if stripped:
-                preface.append(stripped)
-        else:
-            buffer.append(line)
-
-    if current is not None:
-        current["text"] = "\n".join(buffer).strip()
-        current["chars"] = len(current["text"])
-        sections.append(current)
-
-    return "\n".join(preface).strip(), sections
+    for index, match in enumerate(matches):
+        stop = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[match.end():stop].strip()
+        sections.append({
+            "order": index + 1,
+            "heading": match.group(0).strip(),
+            "number": match.group(1),
+            "name": match.group(2).strip(),
+            "key": _classify_section(match.group(2)),
+            "text": body,
+            "chars": len(body),
+        })
+    return text[:matches[0].start()].strip(), sections
 
 
 # ── 年份解析 ──────────────────────────────────────────────
@@ -121,6 +107,34 @@ def parse_report_year(title: str, url: str = "", text: str = "") -> int | None:
 # ── 正文提取 ──────────────────────────────────────────────
 _TAG_RE = re.compile(r"<[^>]+>")
 _SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.S | re.I)
+# 段落内部的"格子"。政府站的排版有两种形态：
+#   标题独占一段        "一、2025年工作回顾"
+#   标题与正文同段      "现在,我代表…报告工作…     一、2012年工作回顾     2012年,是本届…"
+# 后者在武汉 2013 那份里整份都是，早先只按行首匹配，导致它分出 0 节。
+# 按 2 个以上空格（含全角空格）切格子，标题在哪一格都能认出来。
+_CELL_SPLIT = re.compile(r"[ \t　]{2,}")
+
+# 标题可以不在线首。实测三种变体：
+#   "一、2025年工作回顾"                      标题独占一段
+#   "…报告工作…     一、2012年工作回顾     2012年…"  行内，多个空格分隔
+#   "…报告工作。 一、2006年工作回顾 2006年…"          行内，单个空格分隔（上海 2007/2010、广州 2015）
+# 前两种按行切格子能处理，第三种切不出格子；而且"标题必须行首"的写法对三种
+# 全都只覆盖第一种。改成全文扫描，三种走同一条路径。
+# 前置条件：前面是行首或标点/空白，后面紧跟空白或行尾。这样正文里的
+# "一是…"（是而非顿号）与阿拉伯数字编号不会被误判成章节标题。
+_INLINE_HEADING = re.compile(
+    r"(?:^|(?<=[\s。，、；：！？]))"
+    r"([一二三四五六七八九十]{1,3})\s*[、.．]\s*"
+    r"([^\s。，；！？]{2,45})"
+    r"(?=\s|$)"
+)
+
+# 页脚。广州 2015 那份把版权、联系方式、网站标识码、ICP 备案号都混进了正文段落。
+_FOOTER_RE = re.compile(
+    r"^(?:版权所有|主办单位|承办单位|网站标识码|备案号|ICP备案号|技术支持|"
+    r"地址[：:]|邮编[：:]|电话[：:]|传真[：:]|邮箱[：:]|扫一扫|分享到|打印|"
+    r"来源[：:]|编辑[：:]|责任编辑)"
+)
 
 
 def extract_body(html: str) -> str:
@@ -143,10 +157,11 @@ def extract_body(html: str) -> str:
         # 上海 2025 与 2024 两份报告因此分出 0 节，而 2026 那份恰好没有缩进实体。
         text = html_lib.unescape(text)
         text = re.sub(r"[ \t　]+", " ", text).strip()
-        # A plain length floor drops the section headings: "一、2025年工作回顾" is
-        # 10 characters, so a >=12 filter silently discarded 上年回顾 and 主要任务
-        # and left the report looking like it had two sections. Short paragraphs
-        # that look like a heading are kept; everything else needs the floor.
+        # 短标题段落要留：早先的 >=12 下限把 10 个字的"一、2025年工作回顾"丢掉，
+        # 上海 2026 报告因此只分出 2 节。页脚要丢：广州 2015 那份把版权、
+        # 联系方式、网站标识码、ICP 备案号都混在正文段落里。
+        if _FOOTER_RE.match(text):
+            continue
         if len(text) >= 12 or (len(text) >= 4 and _HEADING_RE.match(text)):
             kept.append(text)
     if kept:

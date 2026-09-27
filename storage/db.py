@@ -109,6 +109,17 @@ class Database:
                 connection.exec_driver_sql("ALTER TABLE announcements ADD COLUMN media_terms JSON")
             if "corroborating_sources" not in announcement_columns:
                 connection.exec_driver_sql("ALTER TABLE announcements ADD COLUMN corroborating_sources JSON")
+            # 指标来源标记。create_all() 只建新表，不会给已存在的表加列，所以
+            # 老库升级必须走 ALTER。provenance 是一等字段而非备注：报告原文抽的
+            # 值和统计公报补的值证据强度不同，混在一起就毁了口径追踪。
+            metric_columns = {str(row[1]) for row in connection.exec_driver_sql("PRAGMA table_info(work_report_metrics)")}
+            if metric_columns and "provenance" not in metric_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE work_report_metrics ADD COLUMN provenance VARCHAR(32) NOT NULL DEFAULT 'report_text'")
+            if metric_columns and "source_url" not in metric_columns:
+                connection.exec_driver_sql("ALTER TABLE work_report_metrics ADD COLUMN source_url TEXT")
+            if metric_columns and "source_publisher" not in metric_columns:
+                connection.exec_driver_sql("ALTER TABLE work_report_metrics ADD COLUMN source_publisher VARCHAR(96)")
 
     @contextmanager
     def session(self) -> Iterator[Session]:

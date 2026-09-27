@@ -69,6 +69,60 @@ class SectionSplitTests(unittest.TestCase):
         self.assertEqual(keys, ["review", "plan", "target", "reform"])
         self.assertLess(len(preface), 100, "前言只应是套话，不该吞掉整节")
 
+    def test_heading_inline_after_a_single_space(self) -> None:
+        """标题与正文之间只有单个空格时也要认出来。
+
+        上海 2007/2010、广州 2015 整份都是这个形态：
+        「…向大会作政府工作报告，请予审议。 一、2006年工作回顾 2006年是…」
+        早先要求标题在行首，这三份分出 0 节。
+        """
+        body = (
+            "各位代表: 现在,我代表上海市人民政府,向大会作政府工作报告,请予审议。"
+            " 一、2006年工作回顾 2006年是“十一五”时期的开局之年。"
+            " 二、2007年工作的总体要求 今年是重要的一年。"
+            " 三、经济发展 保持经济持续平稳健康发展。"
+        )
+        _preface, sections = split_sections(body)
+        self.assertEqual(len(sections), 3, [s["heading"] for s in sections])
+        self.assertEqual([s["key"] for s in sections], ["review", "target", "other"])
+
+    def test_heading_inline_after_multiple_spaces(self) -> None:
+        """标题与正文之间多个空格分隔（武汉 2013 整份都是这个形态）。"""
+        body = (
+            "现在,我代表市人民政府向大会报告工作,请予审议。     一、2012年工作回顾     "
+            "2012年,是本届政府的开局之年。     二、2013年工作安排     今年是关键之年。"
+        )
+        _preface, sections = split_sections(body)
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[0]["key"], "review")
+        self.assertIn("本届政府", sections[0]["text"])
+
+    def test_long_heading_with_book_title_marks(self) -> None:
+        """标题名可长至 45 字：『二、关于《…第十五个五年规划纲要(草案)》的说明』。"""
+        body = (
+            "一、2025年工作回顾 回顾内容。 "
+            "二、关于《上海市国民经济和社会发展第十五个五年规划纲要(草案)》的说明 说明内容。 "
+            "三、2026年主要任务 任务内容。"
+        )
+        _preface, sections = split_sections(body)
+        self.assertEqual(len(sections), 3)
+        self.assertEqual(sections[1]["key"], "plan")
+
+
+class ExtractBodyFooterTests(unittest.TestCase):
+    def test_page_footer_is_dropped(self) -> None:
+        """广州 2015 那份把版权、网站标识码、ICP 备案号混在正文段落里。"""
+        html = (
+            "<p>各位代表: 现在,我代表广州市人民政府向大会作工作报告。一、2014年工作回顾 内容。</p>"
+            "<p>版权所有:广州市人民政府</p>"
+            "<p>网站标识码:4401000004</p>"
+            "<p>ICP备案号:粤ICP备2022092331号-1</p>"
+        )
+        text = extract_body(html)
+        for junk in ("版权所有", "网站标识码", "ICP备案号"):
+            self.assertNotIn(junk, text)
+        self.assertIn("一、2014年工作回顾", text)
+
 
 class YearParseTests(unittest.TestCase):
     def test_year_comes_from_title_not_url(self) -> None:
@@ -80,6 +134,52 @@ class YearParseTests(unittest.TestCase):
             parse_report_year("龚正市长在上海市第十六届人民代表大会第四次会议的政府工作报告（2026年）"),
             2026,
         )
+
+
+class CommuniqueParseTests(unittest.TestCase):
+    """统计公报是补报告缺口的来源，指标覆盖要够。"""
+
+    def _parse(self, text: str) -> dict[str, float]:
+        from work_report_verify import parse_communique
+
+        got = parse_communique(text, region_code="310000", year=2025,
+                               publisher="上海市统计局", url="https://tjj.sh.gov.cn/x.html")
+        return {m["metric_key"]: m["value"] for m in got}
+
+    def test_real_shanghai_communique_sentences(self) -> None:
+        """整段取自 tjj.sh.gov.cn/tjgb/ 2025 年上海市统计公报原文。"""
+        text = (
+            "初步核算,全年实现地区生产总值56708.71亿元,比上年增长5.4%。"
+            "全年地方一般公共预算收入8500.91亿元,比上年增长1.5%。"
+            "地方一般公共预算支出9975.99亿元,比上年增长1.0%。"
+            "至年末,全市常住人口为2485.41万人。"
+            "全年城镇调查失业率平均值为4.2%。"
+            "据抽样调查,全年全市居民人均可支配收入91987元,比上年增长4.1%。"
+            "全年居民消费价格总水平比上年上涨0.2%。"
+        )
+        got = self._parse(text)
+        for key in ("gdp", "fiscal_revenue", "fiscal_expenditure", "population",
+                    "urban_surveyed_unemployment", "per_capita_income", "cpi"):
+            with self.subTest(metric=key):
+                self.assertIn(key, got)
+        self.assertEqual(got["gdp"], 56708.71)
+        self.assertEqual(got["population"], 2485.41)
+
+    def test_two_token_link_phrases_are_matched(self) -> None:
+        """「平均值为」是两个 token，单 token 可选组匹配不上。"""
+        self.assertIn("urban_surveyed_unemployment",
+                      self._parse("全年城镇调查失业率平均值为4.2%"))
+
+    def test_provenance_is_marked(self) -> None:
+        from work_report_verify import PROVENANCE_COMMUNIQUE, parse_communique
+
+        got = parse_communique("全年实现地区生产总值56708.71亿元",
+                               region_code="310000", year=2025, publisher="p", url="u")
+        self.assertTrue(got)
+        self.assertEqual(got[0]["provenance"], PROVENANCE_COMMUNIQUE)
+        self.assertEqual(got[0]["source_publisher"], "p")
+        self.assertEqual(got[0]["source_url"], "u")
+        self.assertFalse(got[0]["is_target"], "公报里的数字都是已实现值")
 
 
 class MetricExtractTests(unittest.TestCase):
@@ -101,6 +201,19 @@ class MetricExtractTests(unittest.TestCase):
         keys = [m["metric_key"] for m in got]
         self.assertIn("per_capita_gdp", keys)
         self.assertNotIn("gdp", keys, "人均 GDP 不是 GDP 总量，不能重复计入")
+
+    def test_gdp_not_pulled_from_a_later_clause(self) -> None:
+        """交叉验证抓到过：上海 2026 的 gdp 出现 5.67万亿元 与 3.2万美元。
+
+        后者来自「全市生产总值达到5.67万亿元…人均地区生产总值达到3.2万美元」
+        这类一句话里先总量后人均的写法。人均紧邻匹配点、也可隔着"地区"，
+        所以只回看 2 个字挡不住，必须看窗口里有没有"人均"。
+        """
+        text = "全市生产总值达到5.67万亿元、增长5.4%,人均地区生产总值达到3.2万美元"
+        got = extract_metrics(text, region_code="x", year=2026)
+        gdp = [m for m in got if m["metric_key"] == "gdp"]
+        self.assertEqual(len(gdp), 1, "GDP 总量只应出现一次")
+        self.assertEqual(gdp[0]["value"], 5.67)
 
     def test_elderly_care_beds_are_not_medical_beds(self) -> None:
         """数值对、指标错，比抽不到更糟。"""
