@@ -200,6 +200,13 @@ class HtmlListCollector(BaseCollector):
             if not re.search(r"比选|招标|采购|磋商|询价|竞谈", title or ""):
                 if len(core_plain) <= self.SECTION_ENTRY_MAX_CHARS:
                     return True
+        # 用 | 分隔的一串栏目名：站点的"专题导航条"，不可能是一份公告。
+        # 实测 sc_qh_gov 的「民生服务 民生聚焦 | 便民通告 | 民生保障 | 民生实事 |
+        # 民生进展 | 民生心声」——6 个栏目名加 5 个竖线，标题长度 37 字，绕过了
+        # 长度阈值；又因为不含任何公文动词，也绕过了 NO_DOC_ACTION。
+        # 判据是分隔符数量：公文标题里出现 3 个以上竖线只可能是表格或导航条。
+        if stripped.count("|") >= 3 and not self.SECTION_NO_DOC_ACTION.search(stripped):
+            return True
         # "某某厅 某某平台" 这种两段式（中间空格或下划线分隔）也是入口页
         if re.match(r"^[^，,。]{4,14}厅\s{1,2}[^，,。]{2,20}(?:平台|系统|门户)$", title or ""):
             return True

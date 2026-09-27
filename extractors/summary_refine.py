@@ -292,23 +292,38 @@ def build_summary(
     # so a long body can keep the summary proportionally long — 30% of 5,000 chars
     # is 1,500, well past MAX_SUMMARY_CHARS. A summary is a summary: past the cap it
     # stops being one. Protect the same signal sentences as above so the amount and
-    # the deadline survive, and never drop below two points.
-    if len(summary) > MAX_SUMMARY_CHARS and len(points) > 2:
+    # the deadline survive.
+    #
+    # 触发条件原本是 `len(points) > 2`，而**恰好 2 条要点时上���形同虚设**——
+    # 这正是最常见的超长形态：MAX_SENTENCE 允许单句到 400 字，2 条就是 800。
+    # 实测 17 条超长摘要全部是 2 条要点、最长单条 346-400 字。
+    # 现在改成长度超限就处理，砍到只剩 1 条为止（1 条时它本身就是被保护的首句）。
+    if len(summary) > MAX_SUMMARY_CHARS:
         protected = {
             i for i in range(len(points))
             if i == 0 or _signal_kinds(points[i]) & {"金额", "时限", "时段", "对象"}
         }
-        while len(summary) > MAX_SUMMARY_CHARS and len(points) > 2:
+        while len(summary) > MAX_SUMMARY_CHARS and len(points) > 1:
             removable = [i for i in range(len(points)) if i not in protected]
             if not removable:
-                # Everything left is signal-bearing: cut the longest instead of
-                # losing the amount/deadline entirely.
-                removable = [i for i in range(len(points)) if i != 0] or list(range(1, len(points)))
+                # 只剩受保护的信号句：砍最长的，但仍保首句（它带标题主体信息）
+                removable = [i for i in range(len(points)) if i != 0]
             if not removable:
+                # 全是不可砍的信号句：把最长那条按句号切开，保留前半。
+                # 这种情况很罕见，但比留一条 800 字的"摘要"合理。
+                longest = max(range(len(points)), key=lambda i: len(points[i]))
+                head = points[longest][:max(60, int(len(points[longest]) * 0.6))]
+                cut = head.rfind("。")
+                points[longest] = head[:cut + 1] if cut > 40 else head
+                repairs.append("split_longest_point")
                 break
             longest = max(removable, key=lambda i: len(points[i]))
             summary = "".join(points[:longest] + points[longest + 1:])
             points.pop(longest)
+        if len(summary) > MAX_SUMMARY_CHARS and points:
+            summary = summary[:MAX_SUMMARY_CHARS]
+            points = [summary]
+            repairs.append("hard_truncated")
         repairs.append("capped_summary_chars")
 
     # Correction 2: a summary that stops mid-clause reads as truncated. Append the

@@ -192,6 +192,11 @@ MIN_SENTENCE = 12
 # At 220 chars a single clause lost its own deadline, which is the one fact a
 # comparison needs.
 MAX_SENTENCE = 400
+# 曾试过按"字段标签"（联系电话/传真/邮编…）切分无标点长块，想治那 17 条超长
+# 摘要。实测效果不好，已放弃：切出来的碎片（"传真028-12345679" 14 字、
+# "联系电话13800000003"）信息量太低，反而被选进摘要，把"打电话问"这类真正
+# 有用的句子挤掉了。治超长的正确位置是字数上限那一层（MAX_SUMMARY_CHARS），
+# 已经在 summary_refine 里做了，硬上限对只剩 1-2 条要点的情况同样生效。
 SUMMARY_TARGET = 6
 
 

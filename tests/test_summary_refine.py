@@ -125,6 +125,27 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(report["counts"]["toolbar"], 0)
         self.assertEqual(report["counts"]["no_terminator"], 0)
 
+    def test_hard_char_cap_binds_even_with_only_two_points(self) -> None:
+        """恰好 2 条要点时字数上限也必须生效。
+
+        踩过的坑：硬上限的触发条件写的是 `len(points) > 2`，而**恰好 2 条时
+        上限形同虚设**——那恰恰是最常见的超长形态，因为 MAX_SENTENCE 允许单句
+        到 400 字，2 条就是 800。线上 17 条超长摘要全部是 2 条要点、
+        最长单条 346-400 字，一条例外都没有。
+        """
+        # 直接用真实形态：政务电话表正文整段没有句号，dedupe_sentences 的
+        # _split_long 只能按逗号切，产出接近 MAX_SENTENCE 的长块。造样本时
+        # 用重复填充会被 dedupe_sentences 去重，句子互不相同才切得开。
+        def phones(city: str, start: int) -> str:
+            return "，".join(f"{city}{i:02d}：028-{i:08d}" for i in range(start, start + 40)) + "。"
+
+        body = ("四川省各市县农民工服务电话一览表 " + phones("成都", 1)
+                + phones("自贡", 100) + phones("攀枝花", 200))
+        result = build_summary(body, "农民工服务电话一览表")
+        self.assertGreater(len(body), MAX_SUMMARY_CHARS, "样本本身要够长")
+        self.assertLessEqual(len(result["summary"]), MAX_SUMMARY_CHARS)
+        self.assertIn("capped_summary_chars", result.get("repairs") or [])
+
     def test_huge_body_cannot_drive_the_summary_past_the_caps(self) -> None:
         """超长正文不能把摘要撑破上限。
 
