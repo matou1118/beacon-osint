@@ -383,27 +383,101 @@ class HtmlListCollector(BaseCollector):
         except (TypeError, ValueError):
             return 1
 
+    def _next_page_link(self, html: str, base_url: str, seen: set[str]) -> str | None:
+        """从已抓到的页面里找出"下一页"的真实链接。
+
+        为什么不能继续猜 URL
+          _page_url 按 list_N.shtml / index_N.shtml / ?page=N 去套，实测证明
+          套不对：江苏/浙江/山东的 col/col284/index.html 加 ?pageNum=2 或
+          ?page=2，返回的链接集合与第 1 页**完全相同**（站点根本不认这个参数）；
+          广东/河北的 index_1.shtml 直接 404。也就是说这批省站是 JS 翻页，
+          静态猜不出来。而页面本身通常带着真正的翻页控件——那个 href 才是对的。
+
+        认得三种写法，够覆盖绝大多数政务站
+          1. 链接文字/标题是「下一页」「下页」「后一页」「next」「>」「»」
+          2. href 里带 index_1.htm / index_2.htm 这类序号（即使文字是数字）
+          3. href 里带 ?page=2 / &pageNum=2（即使文字不是"下一页"）
+
+        seen 用来防环：有些站的"下一页"在最后一页仍指向自己或前一页。
+        """
+        base = base_url
+        best: str | None = None
+        for m in re.finditer(r"<a\b([^>]*)>(.*?)</a>", html or "", re.S | re.I):
+            attrs, inner = m.group(1), m.group(2)
+            href_m = re.search(r'href\s*=\s*["\']([^"\']+)["\']', attrs, re.I)
+            if not href_m:
+                continue
+            href = href_m.group(1).strip()
+            if not href or href.lower().startswith(("javascript:", "#", "mailto:")):
+                continue
+            text = re.sub(r"<[^>]+>", "", inner)
+            title = re.search(r'title\s*=\s*["\']([^"\']*)["\']', attrs, re.I)
+            label = f"{text} {title.group(1) if title else ''}".strip()
+            candidate = urljoin(base, href)
+            if candidate in seen or candidate == base:
+                continue
+
+            # 1) 明确的"下一页"文字
+            if re.search(r"下一页|下页|后一页|next|»|>", label, re.I):
+                return candidate
+            # 2) href 里的序号页（index_1 / index_2 …），排除当前页自身
+            if re.search(r"index_\d+\.(?:s?html?|htm)", candidate, re.I):
+                best = best or candidate
+            # 3) href 里的页码参数
+            elif re.search(r"[?&](?:page|pageNum|pageno|pageNo)=\d+", candidate, re.I):
+                best = best or candidate
+        return best
+
     def _static_archive_pages(self) -> list[str]:
-        """Walk static archive pages when the site uses index_N.html style paging.
+        """Walk archive pages, following the page's own "next" link.
 
         archive_pages only reached the rendered path before, so static sources
         kept returning page 1 -- which is why the 1-10 year history came back
         empty. Static archives are plain links, so no browser is needed.
+
+        现在不再按 URL 模式猜页码（实测对江苏/浙江/山东全部无效：?pageNum=2 与
+        ?page=2 返回的链接集与第 1 页完全相同，广东/河北的 index_1.shtml 直接
+        404），改成跟着页面上真实的"下一页"链接走。猜不出来时退回 _page_url，
+        保持对财政部/教育部那批静态 index_N.shtml 站点的原有行为。
         """
         pages = self._archive_pages()
         if pages <= 1:
             return []
         collected: list[str] = []
-        for index in range(1, pages + 1):
-            url = self._page_url(index)
-            if not url:
-                continue
+        seen: set[str] = set()
+        current: str | None = self.list_url
+        try:
+            response = self._request(current)
+            html = self._response_text(response)
+            current = str(getattr(response, "url", current)) or current
+        except Exception as exc:  # noqa: BLE001 - a missing page is not fatal
+            self._note("static_page_failed", f"page 1 failed: {exc}")
+            return []
+        seen.add(current)
+        collected.append(html)
+
+        for index in range(2, pages + 1):
+            nxt = self._next_page_link(html, current, seen)
+            if not nxt:
+                # 页面没给"下一页"就退回猜 URL；猜不出来就到此为止
+                nxt = self._page_url(index)
+            if not nxt or nxt in seen:
+                break
             try:
-                response = self._request(url)
-            except Exception as exc:  # noqa: BLE001 - a missing page is not fatal
+                response = self._request(nxt)
+                page_html = self._response_text(response)
+            except Exception as exc:  # noqa: BLE001
                 self._note("static_page_failed", f"page {index} failed: {exc}")
                 break
-            collected.append(self._response_text(response))
+            final = str(getattr(response, "url", nxt)) or nxt
+            # 第 2 页起内容与上一页完全一样 = 站点在骗我们（实测多省如此）
+            if page_html == html:
+                self._note("static_page_same_as_previous", f"page {index} identical to previous")
+                break
+            seen.add(nxt)
+            seen.add(final)
+            collected.append(page_html)
+            html, current = page_html, final
         return collected
 
     def _page_url(self, index: int) -> str | None:
@@ -421,7 +495,11 @@ class HtmlListCollector(BaseCollector):
             if re.search(pattern, text):
                 if re.search(r"list_\d+\.s?html?$", text) or re.search(r"index_\d+\.s?html?$", text):
                     return None  # zero-based family: guessed, leave it to the renderer
-                return re.sub(pattern, template, text)
+                # 模板里的 {n} 必须替换。原来的 re.sub(pattern, template, text)
+                # 直接返回字面量 "index_{n}.shtml"——archive_pages 对
+                # list.shtml / index.shtml 这一族从来没生效过，测出来就是
+                # "第 2 页 0 条"，因为请求的是一个不存在的 URL。
+                return re.sub(pattern, template, text).replace("{n}", str(index))
         if re.search(r"[?&]page=\d+", text):
             return re.sub(r"([?&]page=)\d+", rf"\g<1>{index}", text)
         return None

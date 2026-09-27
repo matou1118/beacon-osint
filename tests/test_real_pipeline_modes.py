@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,9 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+# 通宵采集常驻时生产采集锁会被真实持有，这个集成测试就会因为一个与它无关的
+# 原因变红。让 main.py 取自己的临时锁，测试在采集运行时也能验证真实行为。
+_TEST_LOCK = Path(tempfile.gettempdir()) / "beacon_test_collect_modes.lock"
 
 
 class ModeHandler(BaseHTTPRequestHandler):
@@ -71,7 +75,8 @@ class RealPipelineModeTests(unittest.TestCase):
                 for source_id in ("api_fixture", "rss_fixture", "web_fixture"):
                     command.extend(["--source", source_id])
                 completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
-                   encoding="utf-8", errors="replace", timeout=90, check=False)
+                   encoding="utf-8", errors="replace", timeout=90, check=False,
+                   env=dict(os.environ, BEACON_COLLECT_LOCK=str(_TEST_LOCK)))
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 result = json.loads(completed.stdout)
                 self.assertEqual(len(result["records"]), 3)

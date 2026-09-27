@@ -8,30 +8,42 @@ dedup——prune_section_pages 和 dedup 都会 DELETE，一边插入一边删�
   2. 锁加错了形式：collect_lock 是上下文管理器类，没有 .acquire 方法，写成
      PIPELINE_LOCK.acquire(...) 会 AttributeError 直接崩。这个 bug 是靠通宵任务
      的日志才发现的（Traceback 打进了 data/overnight_*.log），所以必须有测试。
+
+测试用 BEACON_PIPELINE_LOCK 指向临时路径。原因：通宵采集常驻时生产锁会被真实
+持有，测试若也用生产路径就必然失败——之前这 5 个测试在采集运行时全红，而且红的
+恰恰是"锁被占时必须拒绝启动"那条最该跑的断言。指向自己的路径后，测试在采集
+运行时仍能验证真实行为。
 """
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE = ROOT / "scripts" / "pipeline.py"
-LOCK_DIR = ROOT / "data" / "runtime" / "pipeline.lock"
+LOCK_DIR = Path(tempfile.gettempdir()) / "beacon_test_pipeline.lock"
 
 
 def _run_pipeline(*extra: str) -> subprocess.CompletedProcess:
+    env = dict(os.environ, BEACON_PIPELINE_LOCK=str(LOCK_DIR))
     return subprocess.run(
         [sys.executable, "-B", str(PIPELINE), *extra],
         cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
-        errors="replace", timeout=180,
+        errors="replace", timeout=180, env=env,
     )
 
 
 class PipelineLockTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.assertFalse(LOCK_DIR.exists(), "测试前不该有残留的流水线锁")
+        shutil.rmtree(LOCK_DIR, ignore_errors=True)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(LOCK_DIR, ignore_errors=True)
 
     def test_dry_run_works_and_leaves_no_lock(self):
         """--dry-run 也走加锁路径，必须能正常返回且不留下锁。"""
@@ -53,7 +65,6 @@ class PipelineLockTests(unittest.TestCase):
 
     def test_refuses_to_start_while_another_pipeline_holds_the_lock(self):
         """核心回归：锁被占时必须干净退出，而不是照跑。"""
-        # 直接用锁原语占住，就像另一个流水线那样
         probe = (
             "import sys; sys.path.insert(0, r'%s');"
             "from collectors.lock import acquire;"
@@ -64,18 +75,13 @@ class PipelineLockTests(unittest.TestCase):
                               cwd=str(ROOT), capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=60)
         self.assertIn("held", held.stdout, held.stdout + held.stderr)
+        self.assertTrue(LOCK_DIR.exists())
 
-        try:
-            result = _run_pipeline("--dry-run")
-            combined = result.stdout + result.stderr
-            self.assertIn("已有一轮流水线在跑", combined)
-            self.assertNotIn("将执行", combined,
-                             "锁被占时绝不能继续往下跑")
-        finally:
-            subprocess.run(
-                [sys.executable, "-B", "-c",
-                 "import shutil; shutil.rmtree(r'%s', ignore_errors=True)" % LOCK_DIR],
-                cwd=str(ROOT), capture_output=True, timeout=60)
+        result = _run_pipeline("--dry-run")
+        combined = result.stdout + result.stderr
+        self.assertIn("已有一轮流水线在跑", combined)
+        self.assertNotIn("将执行", combined,
+                         "锁被占时绝不能继续往下跑")
 
 
 if __name__ == "__main__":

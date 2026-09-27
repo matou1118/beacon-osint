@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -191,7 +192,14 @@ def main() -> int:
     # 以及两个计划任务直接调用的 scheduler.py，都会写同一个 SQLite。
     # 锁放在这里是因为 scheduler.py 是以子进程方式调 main.py 的，
     # 加在调度器层拦不住。
-    with collect_lock(f"main.py {args.source_ids or '全部源'}") as locked:
+    # BEACON_COLLECT_LOCK 可以改锁路径，是为了测试。通宵采集常驻时采集锁会被真实
+    # 持有，集成测试若也用生产路径就必然失败——tests/test_real_pipeline_local.py 和
+    # tests/test_real_pipeline_modes.py 之前就是这么红的。让测试指向自己的临时路径，
+    # 它们才能在采集运行时照常验证真实行为。
+    _collect_lock_dir = os.environ.get("BEACON_COLLECT_LOCK") or None
+
+    with collect_lock(f"main.py {args.source_ids or '全部源'}",
+                      lock_dir=_collect_lock_dir) as locked:
         if not locked:
             return 0
         return _run(args)

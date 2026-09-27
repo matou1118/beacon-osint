@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,9 @@ from graph_service import graph_summary
 from storage.db import Database
 
 ROOT = Path(__file__).resolve().parents[1]
+# 通宵采集常驻时生产采集锁会被真实持有，这个集成测试就会因为一个与它无关的
+# 原因变红。让 main.py 取自己的临时锁，测试在采集运行时也能验证真实行为。
+_TEST_LOCK = Path(tempfile.gettempdir()) / "beacon_test_collect_local.lock"
 
 
 class FixtureHandler(BaseHTTPRequestHandler):
@@ -86,7 +90,8 @@ class LocalPipelineTests(unittest.TestCase):
                 schemas_path.write_text("schemas: {}\n", encoding="utf-8")
                 command = [sys.executable, str(ROOT / "main.py"), "--config", str(config_path), "--crawl4ai-schemas", str(schemas_path), "--db", str(db_path), "--source", "local_fixture", "--force", "--limit", "2", "--user-region", "四川省", "--user-level", "省级", "--user-category", "行业政策", "--target-group", "企业", "--output", str(output_path), "--markdown-output", str(markdown_path)]
                 completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
-                   encoding="utf-8", errors="replace", timeout=90, check=False)
+                   encoding="utf-8", errors="replace", timeout=90, check=False,
+                   env=dict(os.environ, BEACON_COLLECT_LOCK=str(_TEST_LOCK)))
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 result = json.loads(completed.stdout)
                 self.assertEqual(len(result["records"]), 2)

@@ -43,7 +43,13 @@ STATE = ROOT / "data" / "pipeline_state.json"
 LOCK_DIR = ROOT / "data" / "runtime" / "collect.lock"
 # 流水线自己的锁目录。必须是另一把锁：它会调 batch_collect，而 batch_collect 要取
 # 采集锁，同一把会让流水线把自己挡在门外。
-PIPELINE_LOCK_DIR = ROOT / "data" / "runtime" / "pipeline.lock"
+#
+# BEACON_PIPELINE_LOCK 可以改路径，是为了测试。通宵采集常驻时，生产锁会被真实
+# 持有，测试若也用生产路径就必然失败——之前 5 个流水线测试全是因为这个红的，
+# 而且失败的恰恰是"锁被占时必须拒绝启动"那条最该跑的断言。让测试指向自己的
+# 临时路径，测试才能在采集运行时照常验证真实行为。
+PIPELINE_LOCK_DIR = Path(os.environ.get(
+    "BEACON_PIPELINE_LOCK", str(ROOT / "data" / "runtime" / "pipeline.lock")))
 
 
 def log(message: str) -> None:
