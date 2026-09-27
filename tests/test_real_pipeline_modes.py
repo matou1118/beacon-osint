@@ -70,7 +70,8 @@ class RealPipelineModeTests(unittest.TestCase):
                 command = [sys.executable, str(ROOT / "main.py"), "--config", str(config_path), "--crawl4ai-schemas", str(schemas_path), "--db", str(db_path), "--force", "--limit", "1", "--markdown-output", str(markdown_path)]
                 for source_id in ("api_fixture", "rss_fixture", "web_fixture"):
                     command.extend(["--source", source_id])
-                completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=90, check=False)
+                completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                   encoding="utf-8", errors="replace", timeout=90, check=False)
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 result = json.loads(completed.stdout)
                 self.assertEqual(len(result["records"]), 3)

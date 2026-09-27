@@ -25,6 +25,8 @@ class Announcement(Base):
     publish_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # 纯正文指纹，用于跨 URL 判同一份文件；content_hash 含 url，是身份标识。
+    content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     gov_level: Mapped[str | None] = mapped_column(String(32), nullable=True)
     jurisdiction_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     region_province: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -482,7 +484,19 @@ class WorkReportMetric(Base):
     caliber: Mapped[str | None] = mapped_column(String(96), nullable=True)
     section: Mapped[str | None] = mapped_column(String(32), nullable=True)
     evidence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    extract_version: Mapped[str] = mapped_column(String(24), nullable=False, default="metrics-v1")
+    # 证据等级。政府工作报告早年只报增速不报总量（上海 2009-2015 全部只写
+    # "生产总值增长X%"），缺口要靠统计公报等一手权威来源补。补进来的值和报告
+    # 原文抽出的值证据强度不同，混在一起就毁了口径追踪，所以来源必须是一等
+    # 字段而不是备注：
+    #   report_text            从报告正文抽取，有原文出处
+    #   statistical_communique 从统计局年度公报抽取，权威一手来源
+    #   manual                 人工核定
+    # 同一 (region, year, metric) 出现两个不同值时不自动取舍，交给
+    # resolve_conflicts() 报出来，由人决定。
+    provenance: Mapped[str] = mapped_column(String(32), nullable=False, default="report_text")
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_publisher: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    extract_version: Mapped[str] = mapped_column(String(24), nullable=False, default="metrics-v2")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (
@@ -490,6 +504,7 @@ class WorkReportMetric(Base):
         Index("ix_wrm_region_metric", "region_code", "metric_key", "year"),
         Index("ix_wrm_report", "report_id"),
         Index("ix_wrm_topic", "topic"),
+        Index("ix_wrm_provenance", "provenance"),
     )
 
 

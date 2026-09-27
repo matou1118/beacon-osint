@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import time
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime, time as datetime_time, timedelta, timezone
 from typing import Any, Callable, Mapping
@@ -27,8 +28,37 @@ except ImportError:
 
 try:
     import trafilatura
-except ImportError:
+
+    _TRAFILATURA_IMPORT_ERROR: ImportError | None = None
+except ImportError as exc:  # pragma: no cover - 取决于环境
+    # 正文抽取会静默退化到 soup.get_text()，也就是把导航/页眉/页脚一起存进
+    # content。实测 trafilatura 因 lxml.html.clean 拆包而 import 失败过一次，
+    # 结果整库 10% 的记录被站点框架文字污染（门户页 12%、摘要超长 22%、
+    # 归类落到"其他" 95%），而没有任何一行日志提示。
+    # 所以这里必须出声，并且有测试盯着它不许再退化。
     trafilatura = None
+    _TRAFILATURA_IMPORT_ERROR = exc
+    warnings.warn(
+        "trafilatura 不可用，正文抽取将退化为整页 get_text()（会带入站点框架文字）。"
+        f"原因：{exc}。修复：pip install lxml_html_clean",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+
+try:
+    from trafilatura.deduplication import content_fingerprint as trafilatura_content_fingerprint
+except ImportError:  # pragma: no cover - 取决于环境
+    trafilatura_content_fingerprint = None
+
+
+def optional_deps_health() -> dict[str, str]:
+    """可选依赖的降级情况，给体检/工作台用。空字典表示都正常。"""
+    health: dict[str, str] = {}
+    if trafilatura is None:
+        health["trafilatura"] = str(_TRAFILATURA_IMPORT_ERROR)
+    if BeautifulSoup is None:
+        health["beautifulsoup4"] = "not installed"
+    return health
 
 
 class BaseCollector(ABC):
@@ -382,6 +412,26 @@ class BaseCollector(ABC):
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
+    @staticmethod
+    def compute_content_fingerprint(record: Mapping[str, Any]) -> str:
+        """纯正文的内容级指纹，用来判"这是同一份文件"。
+
+        与 compute_content_hash 分工：那个把 url 也算进去，是身份标识（upsert 用），
+        所以同一份文件挂在两个 URL 下时它必然不同，去不了重——实测全库只认出
+        26 条重复。指纹只看正文（忽略空白差异），实测认出 64 条。
+        trafilatura 不可用时退回归一化正文的 sha256，行为退化成旧水平而不是失效。
+        """
+        content = re.sub(r"\s+", "", str(record.get("content") or ""))
+        if not content:
+            return ""
+        if trafilatura is not None:
+            try:
+                return str(trafilatura_content_fingerprint(content) or "") or hashlib.sha256(
+                    content.encode("utf-8")).hexdigest()
+            except Exception:  # noqa: BLE001 - 指纹只是优化，不该拖垮采集
+                pass
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
     def _retention_until(self, publish_date: str | None) -> str | None:
         return self._retention_until_with_days(publish_date, self.source.get("retention_days"))
 
@@ -429,6 +479,7 @@ class BaseCollector(ABC):
             "attachment_links": parsed.get("attachment_links") or [],
         }
         record["content_hash"] = self.compute_content_hash(record)
+        record["content_fingerprint"] = self.compute_content_fingerprint(record)
         # Re-derive retention: the extractor may have downgraded this record to
         # transient after classification, and the expiry must match the class.
         retention_days = self.source.get("retention_days")

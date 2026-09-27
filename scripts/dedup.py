@@ -51,12 +51,42 @@ def is_chrome(title: str) -> bool:
     return False
 
 
+def backfill_fingerprints(conn) -> int:
+    """给没有指纹的存量记录补上 content_fingerprint。
+
+    指纹只在新采集时写入，而去重要靠它，所以存量库必须先回填，否则第 2b 步
+    永远查出 0 组，看着像"没有重复"，其实是没数据可比。
+    """
+    import re
+    import hashlib
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from collectors.base import BaseCollector
+
+    missing = conn.execute(
+        "SELECT id, content FROM announcements "
+        "WHERE content_fingerprint IS NULL OR content_fingerprint = ''"
+    ).fetchall()
+    if not missing:
+        return 0
+    updates = []
+    for rid, content in missing:
+        text = re.sub(r"\s+", "", content or "")
+        if not text:
+            continue
+        updates.append((BaseCollector.compute_content_fingerprint({"content": text}), rid))
+    conn.executemany(
+        "UPDATE announcements SET content_fingerprint = ? WHERE id = ?", updates)
+    conn.commit()
+    return len(updates)
+
+
 def dedup(db_path: str = "data/beacon.db", dry_run: bool = False) -> dict[str, int]:
     conn = sqlite3.connect(db_path)
     result = {"chrome_removed": 0, "hash_dups_removed": 0, "title_dups_marked": 0, "total_before": 0, "total_after": 0}
 
     total_before = conn.execute("SELECT COUNT(*) FROM announcements").fetchone()[0]
     result["total_before"] = total_before
+    result["fingerprints_backfilled"] = backfill_fingerprints(conn)
 
     # 1. 删除站点 chrome
     chrome_ids = []
@@ -82,7 +112,24 @@ def dedup(db_path: str = "data/beacon.db", dry_run: bool = False) -> dict[str, i
             "SELECT id FROM announcements WHERE content_hash = ? ORDER BY id", (hash_val,)
         ).fetchall()]
         dup_ids.extend(ids[1:])  # 保留第一个，删除其余
+
+    # 2b. 同正文指纹去重。content_hash 含 url，所以同一份文件挂在不同 URL 下
+    # 时它必然不同、这一段抓不到；指纹只看正文。实测全库 content_hash 只认出
+    # 26 条重复，指纹认出 64 条。hb_ny 采到 3 条同一篇「湖北省农业农村厅主要
+    # 职责」就是这类，靠 URL 比对抓不到。
+    fp_dups = conn.execute(
+        "SELECT content_fingerprint, COUNT(*) c FROM announcements "
+        "WHERE content_fingerprint IS NOT NULL AND content_fingerprint != '' "
+        "GROUP BY content_fingerprint HAVING c > 1"
+    ).fetchall()
+    for fp_val, _ in fp_dups:
+        ids = [r[0] for r in conn.execute(
+            "SELECT id FROM announcements WHERE content_fingerprint = ? ORDER BY id", (fp_val,)
+        ).fetchall()]
+        dup_ids.extend(ids[1:])  # 同样保留最早 id
+    dup_ids = list(dict.fromkeys(dup_ids))
     result["hash_dups_removed"] = len(dup_ids)
+    result["fingerprint_groups"] = len(fp_dups)
 
     if not dry_run and dup_ids:
         placeholders = ",".join("?" * len(dup_ids))

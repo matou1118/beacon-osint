@@ -23,4 +23,8 @@ scrapy-playwright
 sqlalchemy
 streamlit
 trafilatura
+# trafilatura 2.x 依赖 lxml.html.clean，该模块已拆成独立包；不装它
+# trafilatura 会 import 失败，正文抽取静默退化成整页 get_text()，
+# 整库被站点框架文字污染且无任何日志。tests/test_collectors.py 有测试盯着。
+lxml_html_clean
 uvicorn

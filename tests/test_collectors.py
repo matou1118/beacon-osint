@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from collectors.base import optional_deps_health
 from collectors.national import NationalCollector
 
 
@@ -233,6 +234,47 @@ class NationalCollectorTests(unittest.TestCase):
         record = collector.fetch_detail("https://www.example.gov.cn/art/1.html")
         self.assertEqual(record["title"], "锦江区公告")
         self.assertTrue(any("static fetch failed" in item["error"] for item in collector.errors))
+
+    def test_body_extraction_dependencies_are_actually_importable(self) -> None:
+        """正文抽取的可选依赖必须真的能用，不许静默退化。
+
+        trafilatura 曾因 lxml.html.clean 拆包而 import 失败，base.py 的
+        except ImportError 把它吞成 None，于是正文抽取退化为
+        soup.get_text()——整页文字含导航/页眉/页脚。实测后果是整库 10% 的
+        记录被站点框架污染（门户页 12%、摘要超 600 字 22%、归类落到"其他" 95%），
+        而日志里一行提示都没有。这个测试就是为了让那种退化立刻变红。
+        """
+        health = optional_deps_health()
+        self.assertEqual(health, {}, f"正文抽取依赖降级中：{health}")
+
+    def test_content_excludes_site_chrome_when_trafilatura_available(self) -> None:
+        """抽出来的正文不能把导航/页脚一起吞进去。
+
+        已知边界（实测）：正文短到 2 段（约 115 字）时 trafilatura 判断不出主内容
+        区，会把整页留下；4 段起就干净了。所以这里用 6 段 realistic 正文，
+        短记录的框架文字残留属于已知限制，不在这里假装解决。
+        """
+        paragraphs = "".join(
+            f"<p>第{i}段正文内容，说明某项政策的执行要求、申报方式与截止时间，"
+            f"供符合条件的企业和個人参照执行。</p>".replace("個人", "个人")
+            for i in range(1, 7)
+        )
+        html = (
+            "<html><head><title>通知</title></head><body>"
+            "<div class='nav'>首页 字号：打印 搜索 上一篇 下一篇</div>"
+            f"<div class='art'><h1>关于开展申报工作的通知</h1>{paragraphs}</div>"
+            "<div class='foot'>版权所有 备案号 浏览次数</div>"
+            "</body></html>"
+        )
+        collector = self._list_only_collector("https://www.example.gov.cn/list.shtml")
+        parsed = collector.parse(
+            FakeResponse(html, "https://www.example.gov.cn/art/1.html"),
+            "https://www.example.gov.cn/art/1.html",
+        )
+        content = parsed.get("content") or ""
+        self.assertIn("第1段正文内容", content)
+        for junk in ("字号", "上一篇", "版权所有", "浏览次数"):
+            self.assertNotIn(junk, content, f"正文里混进了站点框架文字：{junk}")
 
 
 if __name__ == "__main__":

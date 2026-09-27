@@ -109,6 +109,13 @@ class Database:
                 connection.exec_driver_sql("ALTER TABLE announcements ADD COLUMN media_terms JSON")
             if "corroborating_sources" not in announcement_columns:
                 connection.exec_driver_sql("ALTER TABLE announcements ADD COLUMN corroborating_sources JSON")
+            # 内容指纹：纯正文的内容级哈希，用来判"同一份文件"。
+            # 与 content_hash 分工不同——content_hash 把 url 也算进去，身份标识用；
+            # 同一份文件挂在两个 URL 下时它永远不同，去不了重。实测全库
+            # content_hash 只认出 26 条重复，正文指纹认出 64 条。
+            if "content_fingerprint" not in announcement_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE announcements ADD COLUMN content_fingerprint VARCHAR(64)")
             # 指标来源标记。create_all() 只建新表，不会给已存在的表加列，所以
             # 老库升级必须走 ALTER。provenance 是一等字段而非备注：报告原文抽的
             # 值和统计公报补的值证据强度不同，混在一起就毁了口径追踪。
@@ -155,6 +162,7 @@ class Database:
                     publish_date=record.get("publish_date") or record.get("date"),
                     content=str(record.get("content") or ""),
                     content_hash=content_hash,
+                    content_fingerprint=record.get("content_fingerprint") or None,
                     gov_level=record.get("gov_level"),
                     jurisdiction_code=record.get("jurisdiction_code"),
                     region_province=record.get("region_province"),
@@ -252,6 +260,8 @@ class Database:
             existing.publish_date = record.get("publish_date") or record.get("date")
             existing.content = str(record.get("content") or "")
             existing.content_hash = content_hash
+            if record.get("content_fingerprint"):
+                existing.content_fingerprint = record["content_fingerprint"]
             existing.gov_level = record.get("gov_level")
             existing.jurisdiction_code = record.get("jurisdiction_code")
             existing.region_province = record.get("region_province")

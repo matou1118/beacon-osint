@@ -85,7 +85,8 @@ class LocalPipelineTests(unittest.TestCase):
                 config_path.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
                 schemas_path.write_text("schemas: {}\n", encoding="utf-8")
                 command = [sys.executable, str(ROOT / "main.py"), "--config", str(config_path), "--crawl4ai-schemas", str(schemas_path), "--db", str(db_path), "--source", "local_fixture", "--force", "--limit", "2", "--user-region", "四川省", "--user-level", "省级", "--user-category", "行业政策", "--target-group", "企业", "--output", str(output_path), "--markdown-output", str(markdown_path)]
-                completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=90, check=False)
+                completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                   encoding="utf-8", errors="replace", timeout=90, check=False)
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 result = json.loads(completed.stdout)
                 self.assertEqual(len(result["records"]), 2)
