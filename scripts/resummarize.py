@@ -64,7 +64,8 @@ def backup(con: sqlite3.Connection) -> None:
 def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
     updates: list[dict] = []
     stats: Counter = Counter()
-    for row in con.execute("SELECT id, source_id, title, content, extra, key_points "
+    for row in con.execute("SELECT id, source_id, title, content, extra, key_points, "
+                           "amount, deadline, target_group, institution_name, publish_date "
                            "FROM announcements"):
         try:
             extra = json.loads(row["extra"] or "{}")
@@ -73,7 +74,13 @@ def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
         if not isinstance(extra, dict):
             extra = {}
         old = str(extra.get("summary") or "").strip()
-        result = build_summary(str(row["content"] or ""), str(row["title"] or ""))
+        # 结构化字段（金额/截止/申报对象/责任机构）传给摘要，由它拼成头部事实行。
+        # 这些列只有 10%/6% 有值（policy_fields.BODY_PATTERNS 的线索词原先太窄），
+        # 但有值时比在句子堆里碰运气可靠得多，所以直接用。
+        facts = {key: row[key] for key in
+                 ("amount", "deadline", "target_group", "institution_name", "publish_date")
+                 if row[key] not in (None, "")}
+        result = build_summary(str(row["content"] or ""), str(row["title"] or ""), facts=facts)
         new = str(result.get("summary") or "").strip()
 
         # The pipeline stores the cleaned body too (regex_fallback: content =
@@ -87,6 +94,26 @@ def plan(con: sqlite3.Connection) -> tuple[list[dict], Counter]:
             stats["content_cleaned"] += 1
 
         if not old and not new:
+            # 摘要两侧都空，但 key_points 列可能还留着上一轮的旧值。
+            # 实测 id=1601（新疆政府网站一览表，content 只剩"访问量：标签"11 字）
+            # extra.summary 已是空、extra.drop_reason=chrome_only，而
+            # key_points 列里仍有 1814 字的旧导航摘要——因为这个分支无条件
+            # continue，列永远没机会被清掉。摘要为空却还挂着 1814 字要点，
+            # 下游读列就以为有内容。
+            try:
+                stale_points = json.loads(row["key_points"] or "[]")
+            except (TypeError, ValueError):
+                stale_points = []
+            if stale_points:
+                updates.append({
+                    "id": row["id"],
+                    "extra": json.dumps(dict(extra, summary="", key_points=[]),
+                                         ensure_ascii=False),
+                    "content": None, "old_len": 0, "new_len": 0,
+                    "key_points": "[]",
+                })
+                stats["stale_key_points_cleared"] += 1
+                continue
             stats["both_empty"] += 1
             if content is None:
                 continue

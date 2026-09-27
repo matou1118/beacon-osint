@@ -81,6 +81,39 @@ def _signal_kinds(sentence: str) -> set[str]:
     return {label for pattern, _, label in SIGNAL_PATTERNS if re.search(pattern, sentence)}
 
 
+# 结构化字段 -> 摘要里的显示标签。顺序即优先级：先说钱和什么时候截止，
+# 再说谁能办、找谁办——这是读一份政务公告时最先要确认的四件事。
+_FACT_LABELS = (
+    ("amount", "金额"),
+    ("deadline", "截止"),
+    ("target_group", "申报对象"),
+    ("institution", "责任机构"),
+    ("publish_date", "发布日期"),
+)
+# 单个字段值超过这个长度就不放进去：那说明抽歪了（把整句话当成了值），
+# 塞进摘要头部反而更糟。
+_FACT_MAX_CHARS = 40
+
+
+def _format_facts(facts: Mapping[str, Any] | None) -> str:
+    """把结构化字段拼成一行「金额：… 截止：…」，没有就返回空串。"""
+    if not facts:
+        return ""
+    parts: list[str] = []
+    for key, label in _FACT_LABELS:
+        value = facts.get(key)
+        if value in (None, "", []):
+            continue
+        if not isinstance(value, str):
+            value = str(value)
+        value = value.strip()
+        if not value or len(value) > _FACT_MAX_CHARS:
+            continue
+        # 已经在句子里出现过的事实就不重复放在头部
+        parts.append(f"{label}：{value}")
+    return "｜".join(parts)
+
+
 # 重要信号类别的补齐顺序。这四类是这个产品的立身之本：
 # 多少钱（金额/限价/采购）、什么时候截止（时限/生效/时段）、谁能申报（对象）、
 # 要做什么（义务）。排在前面的先被保证留在摘要里。
@@ -92,10 +125,19 @@ def build_summary(
     text: str,
     title: str = "",
     limit: int = MAX_POINTS,
+    facts: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a summary, then correct it against the measured defects."""
+    """Build a summary, then correct it against the measured defects.
+
+    facts 可传入结构化字段（amount / deadline / target_group / institution），
+    它们会被拼成一行"关键信息"放在摘要最前面。理由：摘要是抽取式选句，
+    金额和截止能不能被选中取决于那一句排第几——实测保留率只有 56%/60%。
+    而这些字段本来就已经抽出来了（policy_fields.BODY_PATTERNS），直接用
+    比在句子堆里碰运气可靠得多，也比让人去读 500 字的原文省事。
+    """
     if not isinstance(limit, int) or limit < 1:
         limit = MAX_POINTS
+    fact_line = _format_facts(facts)
     body = strip_chrome(text)
     sentences = [_strip_lead_noise(s) for s in dedupe_sentences(body)]
     sentences = [s for s in sentences if s]
@@ -286,6 +328,23 @@ def build_summary(
             repairs.append("tail_kept_verbatim")
 
     tags = sorted(covered, key=lambda t: list(dict.fromkeys(l for _, _, l in SIGNAL_PATTERNS)).index(t) if t in [l for _, _, l in SIGNAL_PATTERNS] else 99)
+    # 结构化事实行放最前面，并把含同一事实的句子从要点里剔掉——避免
+    # "金额：495000元" 后面又跟一句"采购预算 495000 元"这种重复。
+    # 事实行本身也计入字数上限：它也是摘要的一部分，超限就整行丢弃。
+    if fact_line:
+        remaining = []
+        for point in points:
+            compact = re.sub(r"\s+", "", point)
+            if any(re.sub(r"\s+", "", seg.split("：", 1)[-1]) in compact
+                   for seg in fact_line.split("｜") if "：" in seg):
+                continue
+            remaining.append(point)
+        if len(fact_line) + sum(len(p) for p in remaining) <= MAX_SUMMARY_CHARS:
+            points = [fact_line] + remaining
+            summary = "".join(points)
+            repairs.append("prepended_facts")
+        else:
+            repairs.append("facts_dropped_over_budget")
     return {
         "clean_text": body,
         "summary": summary,
