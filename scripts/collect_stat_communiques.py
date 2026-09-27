@@ -27,6 +27,7 @@ sys.path.insert(0, ".")
 from collectors.work_report_collector import WorkReportCollector
 from extractors.work_report import extract_body, normalize, parse_report_year
 from stat_sources import STAT_SOURCES
+from collectors.lock import collect_lock
 from storage.db import Database
 from storage.models import WorkReportMetric
 from work_report_verify import (
@@ -77,6 +78,14 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verify-only", action="store_true", help="跳过采集，只做交叉验证")
     args = parser.parse_args()
+
+    with collect_lock("统计公报补齐") as locked:
+        if not locked:
+            return 0
+        return _run(args)
+
+
+def _run(args) -> int:
 
     db = None if (args.dry_run or args.verify_only) else Database("data/beacon.db")
 

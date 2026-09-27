@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, ".")
 
 from collectors.work_report_collector import WorkReportCollector, build_report_records
+from collectors.lock import collect_lock
 from storage.db import Database
 from extractors.work_report_metrics import EXTRACT_VERSION
 from work_report_sources import WORK_REPORT_SOURCES
@@ -92,6 +93,13 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
+    with collect_lock("政府工作报告采集") as locked:
+        if not locked:
+            return 0
+        return _run(args)
+
+
+def _run(args) -> int:
     wanted = {r.strip() for r in args.regions.split(",") if r.strip()}
     sources = [s for s in WORK_REPORT_SOURCES
                if not wanted or s["region_name"] in wanted or s["id"] in wanted]

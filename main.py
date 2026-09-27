@@ -22,6 +22,7 @@ from rules.corroboration import corroborate_records, corroboration_summary
 from rules.media_cluster import cluster_media_records, heat_summary
 from rules.industry_focus import apply_industry_focus
 from rules.tracker import apply_focus_tracking
+from collectors.lock import collect_lock
 from storage.db import Database, compute_content_hash
 
 
@@ -186,6 +187,17 @@ def main() -> int:
     parser.add_argument("--heatmap-output")
     args = parser.parse_args()
 
+    # 采集互斥。公告批量采集（batch_collect.py）、政府工作报告、统计公报、
+    # 以及两个计划任务直接调用的 scheduler.py，都会写同一个 SQLite。
+    # 锁放在这里是因为 scheduler.py 是以子进程方式调 main.py 的，
+    # 加在调度器层拦不住。
+    with collect_lock(f"main.py {args.source_ids or '全部源'}") as locked:
+        if not locked:
+            return 0
+        return _run(args)
+
+
+def _run(args) -> int:
     sources = load_sources(args.config, load_crawl4ai_schemas(args.crawl4ai_schemas))
     rules = load_rules(args.rules)
     industry_config = load_industry_focus(args.industry_config)

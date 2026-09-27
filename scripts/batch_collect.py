@@ -19,6 +19,7 @@ sys.path.insert(0, '.')
 
 from main import load_sources, collector_for, enrich_records, load_rules
 from rules.corroboration import corroborate_records
+from collectors.lock import collect_lock
 from storage.db import Database
 
 ROUNDS_LOG = Path('data/rounds.jsonl')
@@ -229,6 +230,15 @@ def main():
                              'nothing while re-hitting the same government sites all night.')
     args = parser.parse_args()
 
+    # 三个采集入口共用一个 SQLite，写入会互相覆盖 source_sync_state。
+    # 定时任务周期性触发，拿不到锁就跳过本轮，不排队。
+    with collect_lock("公告批量采集") as locked:
+        if not locked:
+            return 0
+        return _run(args)
+
+
+def _run(args) -> int:
     sources = load_sources(args.sources)
     say(f"源总数 {len(sources)} | limit={args.limit} | 每源预算 {args.timeout}s | "
         f"并发 {args.workers} | 轮数 {args.rounds}")
@@ -267,7 +277,8 @@ def main():
     c = sqlite3.connect('data/beacon.db').cursor()
     c.execute('SELECT COUNT(*) FROM announcements')
     say(f"announcements 总数: {c.fetchone()[0]}")
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
