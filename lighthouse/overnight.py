@@ -98,25 +98,31 @@ def run_collect(args: argparse.Namespace) -> int:
     if args.fresh:
         cmd.append("--fresh")
     before = db_count()
-    with open(LOG, "a", encoding="utf-8") as handle:
-        proc = subprocess.Popen(cmd, cwd=str(_ROOT), stdout=handle,
-                                stderr=subprocess.STDOUT)
-        # 有限地等。实测一轮跑完（用了渲染）后 run.py 卡在 atexit 关浏览器，
-        # 20 多分钟不退出；proc.wait() 无超时地等下去，这一轮在调度器眼里
-        # 就永远没结束，后面所有轮次都不会开始，而 status.json 一直显示
-        # 「采集中」——通宵任务就这么静默地死掉了。
-        grace = args.minutes * 60 + 180
+    # 采集进程同样要脱离进程组。理由同 watchdog._spawn_detached：
+    # 每一级都脱离，父进程被清理时才不会把子进程一起带走。
+    popen_kwargs: dict = {"cwd": str(_ROOT), "stdout": handle,
+                          "stderr": subprocess.STDOUT}
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = 0x00000008 | 0x00000200
+    else:
+        popen_kwargs["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    # 有限地等。实测一轮跑完（用了渲染）后 run.py 卡在 atexit 关浏览器，
+    # 20 多分钟不退出；proc.wait() 无超时地等下去，这一轮在调度器眼里
+    # 就永远没结束，后面所有轮次都不会开始，而 status.json 一直显示
+    # 「采集中」——通宵任务就这么静默地死掉了。
+    grace = args.minutes * 60 + 180
+    try:
+        return proc.wait(timeout=grace), before
+    except subprocess.TimeoutExpired:
+        log(f"  采集进程 {proc.pid} 超时 {grace // 60} 分未退出，强杀后继续下一轮"
+            f"（已采到的数据在它写完旁路文件时就入库了，不会丢）")
+        proc.kill()
         try:
-            return proc.wait(timeout=grace), before
+            proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
-            log(f"  采集进程 {proc.pid} 超时 {grace // 60} 分未退出，强杀后继续下一轮"
-                f"（已采到的数据在它写完旁路文件时就入库了，不会丢）")
-            proc.kill()
-            try:
-                proc.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                pass
-            return -9, before
+            pass
+        return -9, before
 
 
 def self_iterate(round_no: int) -> dict[str, Any]:

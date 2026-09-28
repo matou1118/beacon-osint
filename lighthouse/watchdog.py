@@ -57,6 +57,31 @@ def progress_stamp() -> float:
     return path.stat().st_mtime
 
 
+def _spawn_detached(cmd: list[str]) -> int:
+    """起一个**真正独立**的子进程。
+
+    光把 watchdog 自己用 WMI 脱离（lighthouse/launch.py）是不够的：
+    watchdog 再用普通 Popen 起调度器时，父进程是 watchdog，整条链
+    仍然挂在启动它的会话上。实测就是这样——WMI 起了 watchdog，
+    它的子进程照样被连带杀掉（23:57 起到 01:10，watchdog 和 scheduler
+    一起消失）。
+
+    所以每一级都要用 DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP 断开：
+        0x00000008  DETACHED_PROCESS       脱离父进程的进程组
+        0x00000200  CREATE_NEW_PROCESS_GROUP  自成一组，收 Ctrl+C 也影响不到
+    Windows 之外用 start_new_session。
+    """
+    kwargs: dict = {"cwd": str(_ROOT)}
+    if os.name == "nt":
+        kwargs["creationflags"] = (0x00000008 | 0x00000200)
+        kwargs["stdin"] = subprocess.DEVNULL
+        kwargs["stdout"] = subprocess.DEVNULL
+        kwargs["stderr"] = subprocess.DEVNULL
+    else:
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(cmd, **kwargs).pid
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="通宵调度看门狗")
     parser.add_argument("--rounds", type=int, default=20)
@@ -105,22 +130,33 @@ def main(argv: list[str] | None = None) -> int:
         f" 最多重启 {args.max_restarts} 次 起始深度 {args.depth}")
 
     restarts = 0
-    child: subprocess.Popen | None = None
+    child_pid = 0
+
+    def child_alive() -> bool:
+        if os.name == "nt":
+            out = subprocess.run(["tasklist", "/FI", f"PID eq {child_pid}"],
+                                 capture_output=True, text=True).stdout or ""
+            return str(child_pid) in out
+        try:
+            os.kill(child_pid, 0)
+            return True
+        except OSError:
+            return False
+
     while not _stop and datetime.now() < deadline:
         if STOP_FLAG.exists():
             log("看到停止标记，退出")
             break
-        if child is not None and child.poll() is None:
+        if child_pid and child_alive():
             time.sleep(20)
             continue
 
-        if child is not None:
-            code = child.returncode
+        if child_pid:
             if restarts >= args.max_restarts:
                 log(f"重启次数用尽（{restarts}），退出")
                 break
             restarts += 1
-            log(f"调度器退出（退出码 {code}），第 {restarts} 次重启")
+            log(f"调度器（pid {child_pid}）不在了，第 {restarts} 次重启")
         else:
             log("拉起调度器")
 
@@ -131,10 +167,11 @@ def main(argv: list[str] | None = None) -> int:
                "--depth", str(args.depth), "--depth-max", str(args.depth_max),
                "--repair-batch", str(args.repair_batch),
                "--deadline", args.deadline]
-        child = subprocess.Popen(cmd, cwd=str(_ROOT))
+        child_pid = _spawn_detached(cmd)
+        log(f"  调度器 pid={child_pid}（已脱离进程组）")
         time.sleep(20)
 
-    if child is not None and child.poll() is None:
+    if child_pid and child_alive():
         log("让调度器自己跑完（不杀它）")
     log(f"看门狗结束，共重启 {restarts} 次")
     return 0
