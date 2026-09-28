@@ -76,6 +76,14 @@ class BaseCollector(ABC):
         self.source_name = str(self.source.get("name", ""))
         self.domain = str(self.source.get("domain", ""))
         self.list_url = str(self.source.get("url", ""))
+        # 库里已有的 source_url。列表页会把这些链接再报一遍，但详情页我们早就
+        # 存过了——再抓一遍只是让数据库去重，然后把绝大部分抓取预算花在已知内容上。
+        # 实测 42,491 次抓取里只有 1,854 条是新的（重复处理率 96%）。
+        # 成熟的抓取器都做这件事：Conditional GET / RSS 的 lastBuildDate 判断。
+        # 用 set 传入而不是让采集器自己查库，是为了让采集层保持无数据库依赖。
+        self.known_urls = source.get("known_urls") or frozenset()
+        # 本次因为"已知"而跳过的链接数，供日志/统计用
+        self.skipped_known = 0
         self.user_agent = str(self.source.get("user_agent", "BeaconOSINT/0.1"))
         configured_interval = float(self.source.get("request_interval_seconds", self.min_interval_seconds))
         self.interval_seconds = max(self.min_interval_seconds, configured_interval)

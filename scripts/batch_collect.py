@@ -59,6 +59,9 @@ def collect_source_with_timeout(source, limit, timeout_sec=90):
             try:
                 records = collector.collect(limit=limit)
                 result["records"] = records
+                # 必须把跳过数带出来，否则 collect_one 里"全都已知的源算成功"
+                # 那段判断永远看不到它，采完了的源会被记成失败并被降频踢掉。
+                result["skipped_known"] = int(getattr(collector, "skipped_known", 0) or 0)
             finally:
                 collector.close()
         except Exception as e:
@@ -75,27 +78,47 @@ def collect_source_with_timeout(source, limit, timeout_sec=90):
     return result
 
 
-def collect_one(source, limit, timeout_sec, now, database):
-    """采集单个源并写回调度状态。返回 (source_id, records, error, elapsed)。"""
+def collect_one(source, limit, timeout_sec, now, database, known_urls=None):
+    """采集单个源并写回调度状态。
+
+    返回 (source_id, records, error, elapsed, skipped_known)。
+
+    known_urls：库里已有的 source_url 集合。列表页会把这些链接再报一遍，
+    但详情页我们已经存过了——再抓一遍只是让数据库去重，然后把 96% 的抓取
+    预算花在已知内容上。实测 42,491 次抓取里只有 1,854 条是新的。
+    """
     sid = source.get('id', '')
     start = time.time()
     # 采集器自己看表：到点就返回已采到的部分，而不是被外层丢掉整份结果。
     # 外层的线程超时只作看门狗用，正常情况下不会先触发。
     source = dict(source)
     source['deadline_seconds'] = timeout_sec
+    if known_urls:
+        source['known_urls'] = known_urls
     result = collect_source_with_timeout(source, limit, timeout_sec + 60)
     elapsed = time.time() - start
     records, error = result["records"], result["error"]
+    # 必须从 result 里取。漏了这一行下面第 108 行会 NameError，而它被下面的
+    # except Exception 吞掉，只留下一条含糊的 error——"全都已知的源算成功"的
+    # 判定永远不生效。是 tests/test_throttle_wiring.py 抓出来的。
+    skipped_known = int(result.get("skipped_known") or 0)
 
     try:
+        # "没抓到新记录"和"源坏了"必须分开。
+        # 跳过已知 URL 之后，一个全都已知的源会返回 0 条——那是**成功的一轮**
+        # （站���正常，只是没有新公告），不是失败。之前 success=bool(records)
+        # 会把它记成失败、累加 consecutive_failures，然后被新增的降频机制
+        # 按"连败 >= 5"踢掉——等于因为"运行正常"被惩罚。
+        no_new_because_known = bool(skipped_known) and not records and not error
+        ok = bool(records) or no_new_because_known
         database.mark_source_result(
             source_id=sid, cadence_tier=source.get('cadence_tier', 'daily'),
             interval_seconds=int(source.get('cadence_seconds', 86400)),
-            success=bool(records) and not error, error=(error or None) and error[:200], now=now
+            success=ok and not error, error=(error or None) and error[:200], now=now
         )
     except Exception as exc:
         error = error or f"mark_source_result failed: {exc}"
-    return sid, records, error, elapsed
+    return sid, records, error, elapsed, result.get("skipped_known")
 
 
 def run_round(args, sources, round_no, total_rounds):
@@ -107,6 +130,7 @@ def run_round(args, sources, round_no, total_rounds):
     success = 0
     failed = 0
     skipped = 0
+    skipped_known_total = 0
     source_stats = []
 
     now = datetime.now(timezone.utc)
@@ -176,15 +200,24 @@ def run_round(args, sources, round_no, total_rounds):
                  f"每源预算 {args.timeout}s，limit={args.limit}")
     started = time.time()
 
+    # 按源切分已知 URL：每个源只拿自己那一份。全量集合对 101 个源都传一遍
+    # 是白拷贝——一个源已知也就几百个 URL。
+    known_by_source: dict[str, set[str]] = {}
+    if not args.refetch_known:
+        by_source = database.known_urls_by_source()
+        known_by_source = by_source
+
     def run(source):
-        sid, records, error, elapsed = collect_one(
-            source, args.limit, args.timeout, now, database
+        sid_key = str(source.get('id') or '')
+        sid, records, error, elapsed, skipped = collect_one(
+            source, args.limit, args.timeout, now, database,
+            known_urls=known_by_source.get(sid_key, frozenset()),
         )
         if records:
-            enriched = enrich_records(records, {sid: source}, use_gliner=False)
+            enriched = enrich_records(records, {sid_key: source}, use_gliner=False)
         else:
             enriched = []
-        return sid, source, enriched, error, elapsed
+        return sid, source, enriched, error, elapsed, skipped
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -194,11 +227,14 @@ def run_round(args, sources, round_no, total_rounds):
             done += 1
             name = source.get('name', '')[:15]
             try:
-                sid, _src, enriched, error, elapsed = future.result()
+                sid, _src, enriched, error, elapsed, skipped_known = future.result()
             except Exception as exc:
                 failed += 1
                 say(prefix + f"[{done}/{len(todo)}] {source.get('id','')} ({name}) EXC: {exc}")
                 continue
+
+            if skipped_known:
+                skipped_known_total += skipped_known
 
             if enriched:
                 success += 1
@@ -208,6 +244,11 @@ def run_round(args, sources, round_no, total_rounds):
             elif error:
                 failed += 1
                 say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) FAIL ({elapsed:.0f}s): {error[:70]}")
+            elif skipped_known:
+                # 站点正常，只是链接全都见过了。算成功的一轮，不是 SKIP。
+                success += 1
+                say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) 无新增 "
+                             f"({skipped_known} 个已知 URL 已跳过) ({elapsed:.0f}s)")
             else:
                 skipped += 1
                 say(prefix + f"[{done}/{len(todo)}] {sid} ({name}) SKIP ({elapsed:.0f}s)")
@@ -217,6 +258,9 @@ def run_round(args, sources, round_no, total_rounds):
     say(prefix + "-" * 52)
     say(prefix + f"本轮 success={success} failed={failed} skipped={skipped}，"
                  f"取回 {len(all_records)} 条")
+    if skipped_known_total:
+        say(prefix + f"已知 URL 跳过 {skipped_known_total} 个详情页"
+                     f"（省下的就是重复抓取）")
     say(prefix + f"墙钟 {wall/60:.1f} 分钟（串行需 {serial_minutes:.0f} 分钟，"
                  f"加速 {serial_minutes/max(wall/60, 0.01):.1f}x）")
     if wall:
@@ -244,6 +288,9 @@ def run_round(args, sources, round_no, total_rounds):
         "inserted": storage.get("inserted", 0),
         "updated": storage.get("updated", 0),
         "unchanged": storage.get("unchanged", 0),
+        # 已知 URL 被跳过的详情页数。衡量这一轮省了多少重复抓取——
+        # 上一轮这个数是 96% 的抓取量。
+        "skipped_known": skipped_known_total,
         # 逐源明细。落盘它是为了算"秒/条"——不然没法区分高产源和磨洋工的源。
         # 实测两者的差距是 264 倍：bj_gov 3.1 秒/条（720 条），
         # sc_qh_gov 818 秒/条（总共 3 条）。低效源在排空模式里每轮都被打，
@@ -284,6 +331,8 @@ def main():
                         help='秒/条 超过该值的源进入降频（0=关闭）')
     parser.add_argument('--slow-every', type=int, default=4,
                         help='低效源每 N 轮试一次')
+    parser.add_argument('--refetch-known', action='store_true',
+                        help='重抓库里已有的详情页（默认跳过）')
     args = parser.parse_args()
 
     # 三个采集入口共用一个 SQLite，写入会互相覆盖 source_sync_state。

@@ -355,7 +355,12 @@ class HtmlListCollector(BaseCollector):
             url = urljoin(base, href)
             if self._link_allowed(url) and url.rstrip("/") != base.rstrip("/"):
                 links.append(url)
-        return list(dict.fromkeys(links))
+        links = list(dict.fromkeys(links))
+        # 注意：这里**不**把已知 URL 滤掉。滤掉之后 collect() 就看不到它们，
+        # 也就没法判断"这一页全是旧的"而提前收工——而提前收工才是省时间的关键
+        # （实测不收工的话，跳过 61 个已知之后一路翻页到超时，从 186.8 秒变成
+        # 426.1 秒）。已知的判断放在 collect() 里做，由它抛 KnownDetailError。
+        return links
 
     def _crawl4ai_enabled(self) -> bool:
         settings = self.source.get("crawl4ai", {})
@@ -734,9 +739,19 @@ class HtmlListCollector(BaseCollector):
         landing, so probing with limit=1 made the whole source look broken. That
         misjudged 40 of 145 sources. Try several candidates before giving up and
         report the real reason: a landing page is skipped, not fatal.
+
+        已知 URL 的处理：跳过它们，但**不会为了凑满 limit 继续往下翻页**。
+        列表页是按时间倒序的，越深越旧，而旧的几乎必然早就采过了。实测加上
+        跳过之后不设这个上限，nea_gov 从 186.8 秒变成 426.1 秒、mohrss_gov 从
+        202.1 秒变成 441.3 秒——它跳掉 61 个已知的，然后一路翻页到超时，
+        什么也没多拿到。省抓取的前提是**允许早收工**。
         """
         records: list[dict[str, Any]] = []
         landing_titles: list[str] = []
+        stale_pages = 0
+        # 连续几个列表页全是已知链接就收工。取 2 是折中：翻一页可能刚好是上个月
+        # 的内容还在列表里；连着两页都没有新的，基本就是采完了。
+        max_stale_pages = 2
         for url in self.fetch_list():
             if limit is not None and len(records) >= limit:
                 break
@@ -749,12 +764,26 @@ class HtmlListCollector(BaseCollector):
                     "error": f"deadline reached after {len(records)} records, returning partial result",
                 })
                 break
+            if self.known_urls and url in self.known_urls:
+                # 详情页早就存过了。跳过抓取——但要记住它，让连续几个都是这样时
+                # 提前收工。只按 URL 精确匹配，不做归一化：URL 变体（带不带 query
+                # 串、大小写不同）会被当成新链接多抓一次，那是保守方向（多抓不漏）。
+                self.skipped_known += 1
+                stale_pages += 1
+                if stale_pages >= max_stale_pages:
+                    self.errors.append({
+                        "url": url,
+                        "error": (f"{stale_pages} consecutive list items were already known, "
+                                  f"stopping early instead of paging to the timeout"),
+                    })
+                    break
+                continue
             try:
                 records.append(self.fetch_detail(url))
+                stale_pages = 0
             except SectionLandingError as exc:
                 # Expected on list pages: the site chrome is not an announcement.
                 landing_titles.append(str(exc))
-                continue
             except Exception as exc:
                 self.errors.append({"url": url, "error": str(exc)})
         if not records and landing_titles and not self.errors:

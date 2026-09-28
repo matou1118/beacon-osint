@@ -34,7 +34,8 @@ def _args(**over):
     base = dict(limit=5, workers=2, timeout=1, force=True, all_statuses=False,
                 rounds=1, pause=0, stop_when_dry=0,
                 fail_backoff=5, backoff_every=5,
-                slow_threshold=60.0, slow_every=4, sources="config/sources.yaml")
+                slow_threshold=60.0, slow_every=4,
+                refetch_known=False, sources="config/sources.yaml")
     base.update(over)
     return argparse.Namespace(**base)
 
@@ -42,8 +43,15 @@ def _args(**over):
 class FakeDatabase:
     """够 run_round 用：不真的开库，source_due 一律 True。"""
 
+    # 各用例可覆盖：run_round 直接调 database.known_urls_by_source()，
+    # 那是实例方法，mock batch_collect 上的名字没用。
+    known: dict[str, set[str]] = {}
+
     def __init__(self, *a, **k):
         self.closed = False
+
+    def known_urls_by_source(self):
+        return dict(self.known)
 
     def source_due(self, sid, now=None):
         return True
@@ -72,9 +80,9 @@ def _run(round_no, failing, perf, args):
     """跑一轮 run_round，返回它记录的 todo 数与实际被采集的源 id。"""
     seen: list[str] = []
 
-    def fake_collect_one(source, limit, timeout_sec, now, database):
+    def fake_collect_one(source, limit, timeout_sec, now, database, known_urls=None):
         seen.append(source["id"])
-        return source["id"], [], None, 0.1
+        return source["id"], [], None, 0.1, 0
 
     with mock.patch.object(batch_collect, "Database", FakeDatabase), \
          mock.patch.object(batch_collect, "collect_one", fake_collect_one), \
@@ -131,6 +139,98 @@ class WiringTests(unittest.TestCase):
         """没有历史时不能降频——第一轮跑完才有 source_stats。"""
         _, seen = _run(2, {}, {}, _args())
         self.assertEqual(sorted(seen), ["failing_gov", "good_gov", "slow_gov"])
+
+    def test_known_urls_are_handed_to_the_collector(self):
+        """库里已有的 URL 必须传进采集器，否则重复抓取一点都省不掉。"""
+        got: dict[str, object] = {}
+
+        def fake_collect_one(source, limit, timeout_sec, now, database, known_urls=None):
+            got[source["id"]] = known_urls
+            return source["id"], [], None, 0.1, 0
+
+        with mock.patch.object(batch_collect, "Database", FakeDatabase), \
+             mock.patch.object(batch_collect, "collect_one", fake_collect_one), \
+             mock.patch.object(batch_collect, "record_round", lambda s: None), \
+             mock.patch.object(batch_collect, "load_rules", lambda p: {}), \
+             mock.patch.object(batch_collect, "failing_sources", lambda db, t: {}), \
+             mock.patch.object(batch_collect, "load_efficiency", lambda: {}):
+            FakeDatabase.known = {"good_gov": {"u1", "u2"}}
+            batch_collect.run_round(_args(), _sources(), 1, 40)
+            FakeDatabase.known = {}
+        self.assertEqual(got.get("good_gov"), {"u1", "u2"})
+        self.assertEqual(got.get("slow_gov"), frozenset())
+
+    def test_refetch_known_bypasses_the_skip(self):
+        """排查时必须能强制重抓：--refetch-known 传空集合。"""
+        seen: list[object] = []
+
+        def fake_collect_one(source, limit, timeout_sec, now, database, known_urls=None):
+            seen.append(known_urls)
+            return source["id"], [], None, 0.1, 0
+
+        with mock.patch.object(batch_collect, "Database", FakeDatabase), \
+             mock.patch.object(batch_collect, "collect_one", fake_collect_one), \
+             mock.patch.object(batch_collect, "record_round", lambda s: None), \
+             mock.patch.object(batch_collect, "load_rules", lambda p: {}), \
+             mock.patch.object(batch_collect, "failing_sources", lambda db, t: {}), \
+             mock.patch.object(batch_collect, "load_efficiency", lambda: {}):
+            FakeDatabase.known = {"good_gov": {"u1"}}
+            batch_collect.run_round(_args(refetch_known=True), _sources(), 1, 40)
+            FakeDatabase.known = {}
+        self.assertTrue(all(not k for k in seen), "refetch_known 时不该传任何已知 URL")
+
+    def test_all_known_is_a_success_not_a_failure(self):
+        """全都已知的源必须算成功——否则会被降频机制按"连败"踢掉。
+
+        这是个连锁坑：跳过已知 URL 之后，一个采完了的源返回 0 条，
+        success=bool(records) 会把它记成失败、累加 consecutive_failures，
+        然后被 --fail-backoff 踢掉——等于因为"运行正常"被惩罚。
+        """
+        marks: list[bool] = []
+
+        class MarkDB(FakeDatabase):
+            def mark_source_result(self, **kw):
+                marks.append(bool(kw.get("success")))
+
+        # 这里**不能** mock collect_one——要验的 success 判定就在 collect_one 里，
+        # mock 掉它就等于把被测代码也 mock 掉了（第一版就这么写，结果 marks 永远空）。
+        # 该 mock 的是最底层的 collect_source_with_timeout。
+        def fake_cst(source, limit, timeout_sec):
+            return {"records": [], "error": None, "time": 0, "skipped_known": 5}
+
+        with mock.patch.object(batch_collect, "Database", MarkDB), \
+             mock.patch.object(batch_collect, "collect_source_with_timeout", fake_cst), \
+             mock.patch.object(batch_collect, "record_round", lambda s: None), \
+             mock.patch.object(batch_collect, "load_rules", lambda p: {}), \
+             mock.patch.object(batch_collect, "failing_sources", lambda db, t: {}), \
+             mock.patch.object(batch_collect, "load_efficiency", lambda: {}):
+            batch_collect.run_round(_args(), _sources(), 1, 40)
+        self.assertTrue(marks, "应该调过 mark_source_result")
+        self.assertTrue(all(marks), f"全都已知的源被记成了失败: {marks}")
+
+    def test_skipped_known_is_propagated_out_of_the_collector(self):
+        """采集器的 skipped_known 必须一路带回 collect_one。
+
+        漏了这一步，"全都已知的源算成功"那段就永远看不到跳过数，采完的源会被
+        记成失败、累加 consecutive_failures，然后被 --fail-backoff 踢掉。
+        """
+        got: list[int] = []
+
+        class C:
+            skipped_known = 7
+
+            def collect(self, limit=None):
+                return []
+
+            def close(self):
+                pass
+
+        with mock.patch.object(batch_collect, "collector_for", lambda s: C()), \
+             mock.patch.object(batch_collect, "Database", FakeDatabase):
+            res = batch_collect.collect_source_with_timeout(
+                {"id": "x", "name": "x"}, 5, 30)
+        got.append(res.get("skipped_known", 0))
+        self.assertEqual(got, [7], f"skipped_known 没传出来: {res}")
 
 
 if __name__ == "__main__":

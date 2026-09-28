@@ -309,6 +309,27 @@ class Database:
             result[self.upsert_announcement(record)] += 1
         return result
 
+    def known_urls_by_source(self) -> dict[str, set[str]]:
+        """按源分组返回已存的 source_url，用来在抓详情页之前就跳过。
+
+        为什么值得单独一个方法：排空模式每轮都会重新列出同一批链接，不跳过就
+        要把详情页重抓一遍让数据库去重。实测 42,491 次抓取只有 1,854 条是新的
+        ——96% 的抓取预算花在已知内容上，而最好的源本来只要 3.1 秒/条。
+
+        按源分组而不是返回一个大集合：每个源只拿自己那几百个 URL，不用把全库
+        的 URL 集合给 101 个源各拷一份。
+
+        只返回完整 URL，不做归一化——宁可多抓一次，也不能漏。
+        """
+        sql = select(Announcement.source_id, Announcement.source_url).where(
+            Announcement.source_url.isnot(None))
+        out: dict[str, set[str]] = {}
+        with self.session() as session:
+            for sid, url in session.execute(sql).all():
+                if url:
+                    out.setdefault(str(sid), set()).add(str(url))
+        return out
+
     def source_due(self, source_id: str, now: datetime | None = None) -> bool:
         current = _as_datetime(now, utcnow()) or utcnow()
         with self.session() as session:
