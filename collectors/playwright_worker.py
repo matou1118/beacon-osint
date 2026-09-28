@@ -255,6 +255,20 @@ class Renderer:
         parent, child = ctx.Pipe()
         self._inbox = parent
         self._process = ctx.Process(target=_worker, args=(child,), daemon=True)
+        # CREATE_NO_WINDOW (0x08000000) on the worker.
+        #
+        # multiprocessing's spawn inherits the parent's console, but when the
+        # parent has none — which is the normal case now that the collectors are
+        # launched detached with CREATE_NO_WINDOW — the child allocates a fresh
+        # one, so a console window flashes on the user's desktop every time a
+        # Renderer is created. Measured: the popup appeared once per repair.py
+        # / run.py process, which matches "a window flashes and is gone".
+        #
+        # multiprocessing has no public flag for this, but Process reads
+        # _creationflags on Windows before Popen, so setting it before start()
+        # is the supported-by-behaviour way.
+        if os.name == "nt":
+            self._process._creationflags = 0x08000000
         self._process.start()
         child.close()
 
