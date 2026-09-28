@@ -90,6 +90,21 @@ def db_count() -> int:
         return 0
 
 
+# 子进程一律不弹窗。CREATE_NO_WINDOW = 0x08000000。
+#
+# 实测踩过：自迭代里 repair/promote/probe 三处 subprocess.run 没带这个标志，
+# 它们继承了调度器的控制台，于是每次自迭代都在桌面上弹一个
+# 「C:\Python310\python.exe」的窗口。用户看到的就是这个。
+_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
+
+def _quiet_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    """静默执行子进程：不弹窗、不继承控制台。"""
+    kwargs.setdefault("cwd", str(_ROOT))
+    kwargs.setdefault("creationflags", _NO_WINDOW)
+    return subprocess.run(cmd, **kwargs)
+
+
 def run_collect(args: argparse.Namespace) -> int:
     cmd = [PY, "-u", "lighthouse/run.py", "--all",
            "--limit", str(args.limit), "--max-minutes", str(args.minutes),
@@ -103,7 +118,9 @@ def run_collect(args: argparse.Namespace) -> int:
     popen_kwargs: dict = {"cwd": str(_ROOT), "stdout": handle,
                           "stderr": subprocess.STDOUT}
     if os.name == "nt":
-        popen_kwargs["creationflags"] = 0x00000008 | 0x00000200
+        # 同 watchdog：CREATE_NO_WINDOW 才不给控制台程序分配窗口，
+        # DETACHED_PROCESS 在实践里照样会弹一个黑窗（实测过）。
+        popen_kwargs["creationflags"] = _NO_WINDOW | 0x00000200
     else:
         popen_kwargs["start_new_session"] = True
     proc = subprocess.Popen(cmd, **popen_kwargs)
@@ -147,9 +164,9 @@ def self_iterate(round_no: int) -> dict[str, Any]:
 
     log(f"自迭代：{len(dead)} 个源取不到链接，尝试反推 detail_pattern")
     ids = ",".join(dead[:args_repair_batch[0]])
-    repair = subprocess.run([PY, "lighthouse/repair.py", "--source", ids, "--apply"],
-                            cwd=str(_ROOT), capture_output=True, text=True,
-                            encoding="utf-8", errors="replace")
+    repair = _quiet_run([PY, "lighthouse/repair.py", "--source", ids, "--apply"],
+                        capture_output=True, text=True,
+                        encoding="utf-8", errors="replace")
     for line in (repair.stdout or "").splitlines():
         if "已改" in line:
             summary["repaired"].append(line.strip())
@@ -166,12 +183,11 @@ def self_iterate(round_no: int) -> dict[str, Any]:
         return summary
 
     # 改完选择器立刻复采一次，用实测结果决定要不要恢复 enabled
-    probe = subprocess.run(
+    probe = _quiet_run(
         [PY, "lighthouse/run.py", "--source", ids, "--limit", "3",
          "--dry-run", "--fresh", "--max-minutes", "8", "--max-stale", "40",
          "--tag", "probe"],
-        cwd=str(_ROOT), capture_output=True, text=True, encoding="utf-8",
-        errors="replace")
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
     # 找探针报告要认 tag：自迭代的探针只覆盖几个源，别把整轮的当最新一轮
     probes = sorted(glob.glob(str(RUNTIME / "shadow-probe-*.json")), key=os.path.getmtime)
     if not probes:
@@ -181,10 +197,10 @@ def self_iterate(round_no: int) -> dict[str, Any]:
     losers = [s["source_id"] for s in probed.get("sources", [])
               if not s.get("records") and s.get("records") == 0]
     if winners:
-        promote = subprocess.run([PY, "lighthouse/promote.py",
-                                  "--ids", ",".join(winners), "--apply"],
-                                 cwd=str(_ROOT), capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace")
+        promote = _quiet_run([PY, "lighthouse/promote.py",
+                              "--ids", ",".join(winners), "--apply"],
+                             capture_output=True, text=True,
+                             encoding="utf-8", errors="replace")
         for line in (promote.stdout or "").splitlines():
             if "status=" in line or "已写入" in line:
                 summary["promoted"].append(line.strip())

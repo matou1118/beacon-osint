@@ -55,10 +55,18 @@ def read_opts() -> list[str]:
 
 
 def _wmi_create(command: str) -> tuple[int, str]:
-    """通过 WMI 创建进程，脱离当前会话。返回 (pid, 说明)。"""
+    """通过 WMI 创建进程，脱离当前会话，且不分配控制台窗口。
+
+    CREATE_NO_WINDOW(0x08000000) 只能用在 Create 方式上；Win32_Process.Create
+    没有这个参数，所以改用 WMI 的 StartupInformation：
+    ShowWindow = SW_HIDE(0)，并把桌面设为默认值（不指定的话 WMI 会用
+    「新建桌面」，那反而可能多出一个窗口）。
+    """
     ps = (
+        "$si = New-CimInstance -ClassName Win32_ProcessStartupInformation "
+        "-ClientOnly; $si.ShowWindow = 0; "
         "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
-        f"-Arguments @{{CommandLine={command!r}}}; "
+        f"-Arguments @{{CommandLine={command!r}; ProcessStartupInformation=$si}}; "
         "if ($r) { Write-Output $r.ProcessId } else { Write-Output 'FAIL' }"
     )
     proc = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
@@ -89,7 +97,10 @@ def start(extra: list[str]) -> int:
         shutil.rmtree(lock, ignore_errors=True)
 
     inner = subprocess.list2cmdline([sys.executable, "-u", *extra])
-    command = f'cmd /c cd /d "{ROOT}" && {inner}'
+    # 直接跑 python，不套 cmd /c。套了就会多出一个有窗口的 cmd.exe
+    # （实测 WMI 建 cmd 时窗口是可见的，用户能看到）。
+    # CREATE_NO_WINDOW 只创建进程、不分配控制台，所以不依赖 python 侧自己设标志。
+    command = f'cd /d "{ROOT}" && {inner}'
     pid, note = _wmi_create(command)
     if pid <= 0:
         print("WMI 创建失败，退回 Start-Process（不保证脱离会话）")

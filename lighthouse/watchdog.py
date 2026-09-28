@@ -73,7 +73,12 @@ def _spawn_detached(cmd: list[str]) -> int:
     """
     kwargs: dict = {"cwd": str(_ROOT)}
     if os.name == "nt":
-        kwargs["creationflags"] = (0x00000008 | 0x00000200)
+        # CREATE_NO_WINDOW 0x08000000 + CREATE_NEW_PROCESS_GROUP 0x00000200。
+        # 用 CREATE_NO_WINDOW 而不是 DETACHED_PROCESS：控制台程序
+        # DETACHED_PROCESS 虽然不继承父控制台，但在实践里仍会分配一个新控制台
+        # （实测桌面上会弹一个 python310 的黑窗）。CREATE_NO_WINDOW 才是
+        # 明确「不给这个进程分配控制台窗口」。两者语义上互斥，别一起加。
+        kwargs["creationflags"] = 0x08000000 | 0x00000200
         kwargs["stdin"] = subprocess.DEVNULL
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL
