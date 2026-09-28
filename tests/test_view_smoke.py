@@ -33,7 +33,8 @@ print("VIEW_OK", sys.argv[1])
 # Kept in sync with app.NAV_VIEWS; the guard test below fails if they drift.
 VIEWS = [
     "总览", "中国地图", "公告检索", "对比工作台", "关联确认", "字段复核",
-    "订阅中心", "采集运维", "来源健康", "知识图谱", "热频话题", "进化仪表盘", "质量与备份",
+    "订阅中心", "采集运维", "灯塔采集", "来源健康", "知识图谱", "热频话题", "进化仪表盘",
+    "质量与备份",
 ]
 
 

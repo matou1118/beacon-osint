@@ -1366,8 +1366,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1449,8 +1449,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1552,7 +1552,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: sc_zj_gov
   name: 浙江省人民政府
   level: province
@@ -2865,7 +2865,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.container
   link_selector: div.container a[href]
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: js_gxt
   name: 江苏省工业和信息化厅
   level: province
@@ -2983,7 +2983,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: js_swt
   name: 江苏省商务厅
   level: province
@@ -3063,7 +3063,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: ul.index_xfbox1
   link_selector: ul.index_xfbox1 a[href]
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: zj_fgw
   name: 浙江省发展改革委
   level: province
@@ -3269,7 +3269,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.bt-box-1100
   link_selector: div.bt-box-1100 a[href]
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: zj_rst
   name: 浙江省人力资源和社会保障厅
   level: province
@@ -3353,7 +3353,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.bt-left
   link_selector: div.bt-left a[href]
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: sd_gxt
   name: 山东省工业和信息化厅
   level: province
@@ -3395,7 +3395,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: sd_kjt
   name: 山东省科学技术厅
   level: province
@@ -3437,7 +3437,7 @@ sources:
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: /col/col\d+/index\.html
+  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
 - id: sd_ny
   name: 山东省农业农村厅
   level: province
@@ -3536,8 +3536,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3889,8 +3889,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5663,8 +5663,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5700,8 +5700,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5777,8 +5777,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5816,8 +5816,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: pending_reprobe
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
