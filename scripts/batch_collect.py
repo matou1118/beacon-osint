@@ -20,6 +20,10 @@ sys.path.insert(0, '.')
 from main import load_sources, collector_for, enrich_records, load_rules
 from rules.corroboration import corroborate_records
 from collectors.lock import collect_lock
+
+# 同目录模块。scripts 不是包，from scripts.source_perf 会 ImportError。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from source_perf import failing_sources, load_efficiency  # noqa: E402
 from storage.db import Database
 
 ROUNDS_LOG = Path('data/rounds.jsonl')
@@ -111,6 +115,18 @@ def run_round(args, sources, round_no, total_rounds):
     # due 检查留在主线程串行做：它是纯读，且要在派发前决定谁参与本轮。
     todo = []
     not_enabled = 0
+    backoff = {}
+    slow = {}
+    if round_no > 1:
+        # 降频只在第 2 轮之后生效：第 1 轮照打全量，源才有恢复的机会，
+        # 否则一个刚被限流恢复的源会被永远跳过。
+        if args.fail_backoff > 0:
+            backoff = failing_sources(database, args.fail_backoff)
+        if args.slow_threshold > 0:
+            perf = load_efficiency()
+            slow = {p.sid: p for p in perf.values()
+                    if p.seconds_per_record > args.slow_threshold}
+
     for source in sources:
         sid = source.get('id', '')
         # --force only overrides the next-due time, never the registry status.
@@ -120,10 +136,31 @@ def run_round(args, sources, round_no, total_rounds):
         if not args.all_statuses and not (source.get('status') == 'enabled' and source.get('enabled', True)):
             not_enabled += 1
             continue
+        # 连续失败的源降频。实测 1497 次请求里 392 次是 SKIP（26%），排空模式
+        # 每轮都去试 zj_fgw / zj_kjt / zj_ny / js_fgw / js_ny / js_rst，
+        # 而它们 consecutive_failures 已经 21-22——每轮都白试。
+        if sid in backoff:
+            if round_no % max(1, args.backoff_every) == 0:
+                todo.append(source)      # 每 N 轮仍给一次机会
+            else:
+                skipped += 1
+            continue
+        # 低效源降频。sc_qh_gov 818 秒/条（总共 3 条）、sc_shanxi_gov 113 秒/条，
+        # 最好的源是 3.1 秒/条，差 264 倍。
+        if sid in slow and round_no % max(1, args.slow_every) != 0:
+            skipped += 1
+            continue
         if not args.force and not database.source_due(sid, now):
             skipped += 1
             continue
         todo.append(source)
+
+    if backoff:
+        say(prefix + f"连败降频 {len(backoff)} 个源（连败 >= {args.fail_backoff}，"
+                     f"每 {args.backoff_every} 轮才试一次）")
+    if slow:
+        say(prefix + f"低效降频 {len(slow)} 个源（秒/条 > {args.slow_threshold}，"
+                     f"每 {args.slow_every} 轮才试一次）")
 
     if not_enabled:
         say(prefix + f"按登记表跳过 {not_enabled} 个非 enabled 源"
@@ -207,6 +244,14 @@ def run_round(args, sources, round_no, total_rounds):
         "inserted": storage.get("inserted", 0),
         "updated": storage.get("updated", 0),
         "unchanged": storage.get("unchanged", 0),
+        # 逐源明细。落盘它是为了算"秒/条"——不然没法区分高产源和磨洋工的源。
+        # 实测两者的差距是 264 倍：bj_gov 3.1 秒/条（720 条），
+        # sc_qh_gov 818 秒/条（总共 3 条）。低效源在排空模式里每轮都被打，
+        # 每轮几十秒换零星几条。光看轮级汇总看不出来。
+        "source_stats": [
+            {"id": sid, "records": n, "seconds": round(sec, 1)}
+            for sid, n, sec in source_stats
+        ],
     }
     record_round(summary)
     return summary
@@ -228,6 +273,17 @@ def main():
                              '(0 = never stop). Enabled sources yield a fixed set at the '
                              'current max_items/archive_pages, so repeating the pass adds '
                              'nothing while re-hitting the same government sites all night.')
+    # 降频：连败的源和磨洋工的源，第 2 轮起不再每轮都打。
+    # 0 = 关闭。默认开着，因为实测这两个漏是最大的浪费（26% 的请求是 SKIP，
+    # 而最差的源 818 秒/条、最好 3.1 秒/条）。
+    parser.add_argument('--fail-backoff', type=int, default=5,
+                        help='连续失败达到该次数的源进入降频（0=关闭）')
+    parser.add_argument('--backoff-every', type=int, default=5,
+                        help='降频的源每 N 轮仍试一次（留恢复机会）')
+    parser.add_argument('--slow-threshold', type=float, default=60.0,
+                        help='秒/条 超过该值的源进入降频（0=关闭）')
+    parser.add_argument('--slow-every', type=int, default=4,
+                        help='低效源每 N 轮试一次')
     args = parser.parse_args()
 
     # 三个采集入口共用一个 SQLite，写入会互相覆盖 source_sync_state。

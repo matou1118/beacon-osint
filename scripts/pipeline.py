@@ -170,6 +170,14 @@ def main() -> int:
     parser.add_argument("--pause", type=int, default=120, help="--drain 轮间暂停秒数")
     parser.add_argument("--stop-when-dry", type=int, default=3,
                         help="--drain 连续几轮无新增就收工")
+    parser.add_argument("--fail-backoff", type=int, default=5,
+                        help="连续失败达到该次数的源进入降频（0=关闭）")
+    parser.add_argument("--backoff-every", type=int, default=5,
+                        help="降频的源每 N 轮仍试一次")
+    parser.add_argument("--slow-threshold", type=float, default=60.0,
+                        help="秒/条超过该值的源进入降频（0=关闭）")
+    parser.add_argument("--slow-every", type=int, default=4,
+                        help="低效源每 N 轮试一次")
     args = parser.parse_args()
 
     log(f"灯塔采集流水线  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -220,7 +228,14 @@ def _run(args) -> int:
         # 通宵采集要的是"取空为止"，不是"每源取 N 条就走"。一轮 limit 打满后
         # 源里还有新公告，所以要反复排空，连续几轮没新增才收工。
         collect += ["--rounds", str(args.rounds), "--pause", str(args.pause),
-                    "--stop-when-dry", str(args.stop_when_dry)]
+                    "--stop-when-dry", str(args.stop_when_dry),
+                    # 降频。排空模式最大的两个漏：26% 的请求是 SKIP（连败的源
+                    # 每轮都白试），以及少数源 818 秒/条（最好的源 3.1 秒/条）。
+                    # 写出来而不是靠 batch_collect 的默认值，--dry-run 里能看见。
+                    "--fail-backoff", str(args.fail_backoff),
+                    "--backoff-every", str(args.backoff_every),
+                    "--slow-threshold", str(args.slow_threshold),
+                    "--slow-every", str(args.slow_every)]
 
     steps = [
         ("collect", collect),
