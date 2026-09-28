@@ -157,7 +157,11 @@ def run_source_with_retry(
             result = run_once(source)
             return {"success": True, "attempts": attempt, "result": result, "error": None}
         except Exception as exc:
-            last_error = scrub_text(str(exc))[:2000]
+            # 带上异常类型名。str(exc) 可能是空的（裸 Exception()、或者某些
+            # 只设了 args[0] 为 None 的异常），于是 last_error 落库成
+            # "unknown error"——库里 57 个连续失败的源全是这四个字，分不清是
+            # 代理断了、412、robots 还是选择器失效。类型名是白捡的诊断信息。
+            last_error = scrub_text(f"{type(exc).__name__}: {exc}")[:2000]
             if attempt <= retries:
                 sleep(backoff * (2 ** (attempt - 1)))
     return {"success": False, "attempts": retries + 1, "result": None, "error": last_error or "unknown error"}

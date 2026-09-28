@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 DB = ROOT / "data" / "beacon.db"
 LOCK = ROOT / "data" / "runtime" / "collect.lock"
 WINDOW = timedelta(hours=14)
@@ -89,6 +90,48 @@ def main() -> int:
     print(f"未分类          {other} ({other/max(total,1):.1%})")
     if other / max(total, 1) > 0.1:
         problems.append(f"未分类 {other/max(total,1):.0%}，classify 步骤可能没跑成功")
+
+    # 源成功率。这一条是补 03:30 那轮漏掉的洞：那轮 101 个源全部 FAIL
+    # （代理不通，每个 ENOTFOUND），但因为"正常跑完"，退出码 0、体检无异常，
+    # 整夜看起来是成功的。数据量判据抓不到这种情况——那一轮本来就该是 0 新增，
+    # 而"0 新增"和"源都取空了"在别的日子也正常。只有源级失败率能区分。
+    try:
+        attempted = con.execute(
+            "SELECT COUNT(*) FROM source_sync_state "
+            "WHERE last_attempt_at >= datetime('now','-14 hours')").fetchone()[0]
+        failed = con.execute(
+            "SELECT COUNT(*) FROM source_sync_state "
+            "WHERE last_attempt_at >= datetime('now','-14 hours') "
+            "AND consecutive_failures > 0").fetchone()[0]
+        rate = failed / attempted if attempted else 0
+        print(f"源            近 14 小时试过 {attempted} 个，失败 {failed} 个"
+              f"（{rate:.0%}）")
+        if attempted and rate > 0.3:
+            problems.append(
+                f"{failed}/{attempted} 个源失败（{rate:.0%}）——很可能整轮没采到东西")
+        # 列出真实错误类型。之前这里靠 last_error LIKE '%ENOTFOUND%' 猜，
+        # 结果输出"网络/代理类 0"——因为库里 57 个失败源的 last_error 全是
+        # "unknown error"（str(exc) 为空，见 scheduler.py 的修复）。直接列
+        # 实际存了什么，不猜。
+        errs = con.execute("""
+            SELECT substr(COALESCE(last_error,'(空)'), 1, 46) e, COUNT(*)
+            FROM source_sync_state WHERE consecutive_failures > 0
+            GROUP BY e ORDER BY 2 DESC LIMIT 5
+        """).fetchall()
+        for text, n in errs:
+            print(f"              {n:>3} x {text}")
+    except sqlite3.OperationalError:
+        problems.append("source_sync_state 不可用，无法判断源成功率")
+
+    # 代理自检：采集的硬依赖，配在注册表里，采集代码自己不知道它挂了
+    try:
+        from collectors.net import proxy_status
+        ok, note = proxy_status()
+        print(f"代理          {note}")
+        if not ok:
+            problems.append(note)
+    except Exception as exc:  # noqa: BLE001
+        print(f"代理          自检失败 {type(exc).__name__}")
 
     # 锁状态
     if LOCK.exists():

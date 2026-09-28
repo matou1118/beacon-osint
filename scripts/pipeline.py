@@ -36,6 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from collectors.lock import CollectLockBusy, acquire, release  # noqa: E402
+from collectors.net import proxy_status  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
@@ -199,6 +200,17 @@ def main() -> int:
 
 
 def _run(args) -> int:
+    # 开跑前先探代理。代理配在 Windows 注册表里，requests 自动使用，采集代码
+    # 自己完全不知道它挂了——通宵那晚 03:30 那轮就是这么白跑的：101 个源全部
+    # ENOTFOUND，7.5 分钟跑完，退出码 0，体检报"无异常"，实际一个字节没采到。
+    # 探测放在流水线这里（而不是 batch_collect 内部），因为流水线是计划任务的
+    # 入口，它需要能以非零码退出、并把原因写进 overnight_*.log。
+    proxy_ok, proxy_note = proxy_status()
+    log(f"代理自检：{proxy_note}")
+    if not proxy_ok:
+        log("代理不通，本轮不采集。留着时间给下一个 2 小时切片，别拿假进度糊弄一夜。")
+        return 2
+
     collect = [PY, "-u", "-B", "scripts/batch_collect.py", "--force",
                "--limit", str(args.limit), "--workers", str(args.workers),
                "--timeout", str(args.timeout)]
