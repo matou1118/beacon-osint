@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "data" / "runtime" / "lighthouse"
 # 守护进程启动时带上的参数。用文件存而不是写死，这样改参数不用改这个文件
 OPTS = RUNTIME / "launch_opts.txt"
+LOG = RUNTIME / "overnight.log"
 
 
 def default_opts() -> list[str]:
@@ -75,42 +76,97 @@ def _wmi_create(command: str) -> tuple[int, str]:
     return (int(out) if out.isdigit() else -1), out
 
 
+def _hidden_console_kwargs() -> dict:
+    """给子进程一个**隐藏的控制台**。
+
+    为什么是「有控制台但隐藏」而不是「完全不要控制台」
+    ----------------------------------------------------
+    之前走的是 CREATE_NO_WINDOW：整条链没有控制台。问题是 Windows 上
+    「父进程没有控制台」时，playwright 启动它的 node 驱动会**自己分配
+    一个新的**（conhost.exe），起来就退——桌面上就是一秒一闪的窗口，
+    间隔约 1 分钟。实测抓到的完整链条：
+
+        10:03:04  node     pid=3076  父=pythonw  ...playwright\\driver\\node.exe
+        10:03:04  conhost  pid=2564  父=node.exe  conhost.exe 0x4
+
+    同样的问题还会发生在 chrome / msedge / 任何会 spawn 子进程的库上。
+    逐个加标志是打地鼠。
+
+    反过来做：让 watchdog 持有一个**隐藏的控制台**，它的所有子孙都继承这个
+    控制台，谁都不会再自己分配。窗口不显示（SW_HIDE），但控制台存在。
+
+    CREATE_NEW_CONSOLE 0x10  CREATE_UNICODE_ENVIRONMENT 0x400
+    """
+    import subprocess
+
+    info = subprocess.STARTUPINFO()
+    info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    info.wShowWindow = 0                       # SW_HIDE
+    return {
+        "creationflags": 0x00000010 | 0x00000400,
+        "startupinfo": info,
+    }
+
+
 def start(extra: list[str]) -> int:
     RUNTIME.mkdir(parents=True, exist_ok=True)
     OPTS.write_text(" ".join(extra), encoding="utf-8")
     for flag in ("STOP", "WATCHDOG_STOP"):
         (RUNTIME / flag).unlink(missing_ok=True)
-    lock = ROOT / "data" / "runtime" / "collect.lock"
-    if lock.exists():
-        # 只清死进程留下的锁；活着的说明真有人在采，不动
-        import json
+    _clear_stale_lock()
+    if _lock_held_by_live_process():
+        print("collect.lock 被活进程持有，先不启动")
+        return 2
+    return _spawn_watchdog(extra)
 
-        try:
-            pid = int(json.loads((lock / "holder.json").read_text())["pid"])
-            if _alive(pid):
-                print(f"collect.lock 被活进程 {pid} 持有，先不启动")
-                return 2
-        except Exception:                                      # noqa: BLE001
-            pass
-        import shutil
 
-        shutil.rmtree(lock, ignore_errors=True)
+def _spawn_watchdog(extra: list[str]) -> int:
+    """起 watchdog。它用普通 python.exe（要控制台）+ 隐藏控制台。
 
-    inner = subprocess.list2cmdline([sys.executable, "-u", *extra])
-    # 直接跑 python，不套 cmd /c。套了就会多出一个有窗口的 cmd.exe
-    # （实测 WMI 建 cmd 时窗口是可见的，用户能看到）。
-    # CREATE_NO_WINDOW 只创建进程、不分配控制台，所以不依赖 python 侧自己设标志。
-    command = f'cd /d "{ROOT}" && {inner}'
-    pid, note = _wmi_create(command)
-    if pid <= 0:
-        print("WMI 创建失败，退回 Start-Process（不保证脱离会话）")
-        subprocess.Popen([sys.executable, "-u", *extra], cwd=str(ROOT))
-        return 1
-    print(f"已脱离会话启动，pid={pid}")
-    print(f"  命令：python {' '.join(extra)}")
+    不用 pythonw：pythonw 是 GUI 子系统的程序，本身就没有控制台，
+    而「没有控制台」正是所有弹窗的根源。
+    """
+    import subprocess
+    import sys
+
+    console_python = Path(sys.executable).with_name("python.exe")
+    exe = str(console_python if console_python.exists() else sys.executable)
+    cmd = [exe, "-u", "lighthouse/watchdog.py", *extra]
+    log_handle = open(LOG, "a", encoding="utf-8")
+    try:
+        kwargs = _hidden_console_kwargs()
+    except Exception:                                          # noqa: BLE001
+        kwargs = {}
+    proc = subprocess.Popen(cmd, cwd=str(ROOT), stdout=log_handle,
+                            stderr=subprocess.STDOUT, **kwargs)
+    print(f"已启动，pid={proc.pid}（隐藏控制台）")
+    print(f"  解释器 {exe}")
+    print(f"  参数 {' '.join(extra)}")
     print("  看状态：python lighthouse/status.py")
     print("  优雅停：python lighthouse/status.py --stop")
     return 0
+
+
+def _lock_held_by_live_process() -> bool:
+    lock = ROOT / "data" / "runtime" / "collect.lock"
+    if not lock.exists():
+        return False
+    try:
+        import json
+
+        pid = int(json.loads((lock / "holder.json").read_text(encoding="utf-8"))["pid"])
+        return _alive(pid)
+    except Exception:                                          # noqa: BLE001
+        return False
+
+
+def _clear_stale_lock() -> None:
+    """只清死进程留下的锁；活着的说明真有人在采。"""
+    import shutil
+
+    lock = ROOT / "data" / "runtime" / "collect.lock"
+    if lock.exists() and not _lock_held_by_live_process():
+        shutil.rmtree(lock, ignore_errors=True)
 
 
 def _alive(pid: int) -> bool:
@@ -156,13 +212,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="脱离会话地启动采集守护")
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--stop", action="store_true")
-    parser.add_argument("args", nargs="*", help="覆盖默认启动参数")
-    args = parser.parse_args(argv)
+    parser.add_argument("args", nargs="*", help="透传给 watchdog.py 的参数")
+    # parse_known_args 而不是 parse_args：watchdog 的参数（--rounds --minutes …）
+    # 会原样透传下去，parse_args 会把它们当成自己的未知参数而报错退出。
+    # 之前就是这么写的，结果任务计划程序调它时静默失败，采集根本没起来。
+    args, passthrough = parser.parse_known_args(argv)
     if args.status:
         return status()
     if args.stop:
         return stop()
-    return start(args.args or default_opts())
+    return start(passthrough or default_opts())
 
 
 if __name__ == "__main__":

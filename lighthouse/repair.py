@@ -54,6 +54,9 @@ import yaml  # noqa: E402
 
 from lighthouse.routes import build_collector, _serial_render  # noqa: E402
 from lighthouse.run import load_sources, with_defaults  # noqa: E402
+from lighthouse.winflags import install as _install_no_window  # noqa: E402
+_install_no_window()  # 本进程 spawn 的任何子进程都不带控制台窗口
+
 from lighthouse.quality import load_config  # noqa: E402
 
 SOURCES_YAML = _ROOT / "config" / "sources.yaml"

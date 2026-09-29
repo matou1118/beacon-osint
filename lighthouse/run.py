@@ -38,6 +38,9 @@ import yaml                                                    # noqa: E402
 from collectors.base import BaseCollector                      # noqa: E402
 from collectors.lock import CollectLockBusy, acquire, release  # noqa: E402
 from lighthouse.routes import Ladder, build_collector         # noqa: E402
+from lighthouse.winflags import install as _install_no_window  # noqa: E402
+_install_no_window()  # 本进程 spawn 的任何子进程都不带控制台窗口
+
 from lighthouse.quality import build_summary, extract_fields, judge, load_config  # noqa: E402
 
 SOURCES_YAML = _ROOT / "config" / "sources.yaml"
