@@ -115,7 +115,9 @@ def run_collect(args: argparse.Namespace) -> int:
     before = db_count()
     # 采集进程同样要脱离进程组。理由同 watchdog._spawn_detached：
     # 每一级都脱离，父进程被清理时才不会把子进程一起带走。
-    popen_kwargs: dict = {"cwd": str(_ROOT), "stdout": handle,
+    # 输出直接追加到同一份日志（run.py 是 -u 无缓冲的，进度行会实时落盘）。
+    log_handle = open(LOG, "a", encoding="utf-8")
+    popen_kwargs: dict = {"cwd": str(_ROOT), "stdout": log_handle,
                           "stderr": subprocess.STDOUT}
     if os.name == "nt":
         # 同 watchdog：CREATE_NO_WINDOW 才不给控制台程序分配窗口，
