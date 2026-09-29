@@ -16,6 +16,7 @@ from __future__ import annotations
 import atexit
 import multiprocessing
 import os
+import subprocess
 import threading
 import warnings
 from typing import Any
@@ -120,6 +121,10 @@ def _safe_content(page: Any, timeout_ms: int, attempts: int = 3) -> str:
 
 def _worker(inbox: Any) -> None:
     """Serve render tasks until the parent closes the pipe."""
+    # 这里**不要**再给 subprocess.Popen 打补丁。实测：在 worker 里强制
+    # CREATE_NO_WINDOW，隔离测试里「父=node.exe 的 conhost」从 0 次变成 1 次，
+    # 方向是反的。弹窗的补丁统一放在调用方（lighthouse/winflags），worker 保持
+    # 原样最稳。
     global _PAGE
     while True:
         try:
@@ -267,6 +272,19 @@ class Renderer:
         # multiprocessing has no public flag for this, but Process reads
         # _creationflags on Windows before Popen, so setting it before start()
         # is the supported-by-behaviour way.
+        # CREATE_NO_WINDOW on the worker.
+        #
+        # multiprocessing's spawn inherits the parent's console, but when the
+        # parent has none — which is the normal case now that the collectors are
+        # launched detached — the child allocates a fresh one, so a console
+        # window flashes on the user's desktop every time a Renderer is created.
+        #
+        # multiprocessing has no public flag for this, but Process reads
+        # _creationflags on Windows before Popen, so setting it before start()
+        # is the supported-by-behaviour way.
+        #
+        # 试过给它一个隐藏控制台（CREATE_NEW_CONSOLE + SW_HIDE），期望让内部的
+        # node 驱动继承——实测反而从 0 次变成 1 次，方向不对，已回退。
         if os.name == "nt":
             self._process._creationflags = 0x08000000
         self._process.start()

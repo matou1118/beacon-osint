@@ -73,12 +73,27 @@ def _spawn_detached(cmd: list[str]) -> int:
     """
     kwargs: dict = {"cwd": str(_ROOT)}
     if os.name == "nt":
-        # CREATE_NO_WINDOW 0x08000000 + CREATE_NEW_PROCESS_GROUP 0x00000200。
-        # 用 CREATE_NO_WINDOW 而不是 DETACHED_PROCESS：控制台程序
-        # DETACHED_PROCESS 虽然不继承父控制台，但在实践里仍会分配一个新控制台
-        # （实测桌面上会弹一个 python310 的黑窗）。CREATE_NO_WINDOW 才是
-        # 明确「不给这个进程分配控制台窗口」。两者语义上互斥，别一起加。
-        kwargs["creationflags"] = 0x08000000 | 0x00000200
+        # CREATE_NEW_CONSOLE 0x10 + CREATE_UNICODE_ENVIRONMENT 0x400，
+        # 配 STARTF_USESHOWWINDOW / SW_HIDE。
+        #
+        # 为什么是「有控制台但隐藏」而不是「完全不要控制台」——这是弹窗的根治点。
+        # 父进程没有控制台时，playwright 启动它的 node 驱动会自己分配一个
+        # （conhost.exe 起来就退，桌面上一秒一闪，实测约每分钟一次）。chrome、
+        # msedge 同理。
+        #
+        # 实测（lighthouse/_test_hidden_console.py，真实渲染 mof.gov.cn）：
+        #     CREATE_NO_WINDOW                      -> 3 次 conhost
+        #     隐藏控制台                             -> 1 次 conhost
+        #     隐藏控制台 + winflags 全局补丁          -> 0 次 conhost
+        #
+        # winflags 只在本进程生效，传不到子进程；所以每一级 spawn 都得自己给
+        # 一个隐藏控制台，让子孙继承它。CREATE_NO_WINDOW 不提供控制台，
+        # 下游就会自己再分配——那正是弹窗的成因。
+        info = subprocess.STARTUPINFO()
+        info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        info.wShowWindow = 0                       # SW_HIDE
+        kwargs["creationflags"] = 0x00000010 | 0x00000400
+        kwargs["startupinfo"] = info
         kwargs["stdin"] = subprocess.DEVNULL
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL

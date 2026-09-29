@@ -120,9 +120,14 @@ def run_collect(args: argparse.Namespace) -> int:
     popen_kwargs: dict = {"cwd": str(_ROOT), "stdout": log_handle,
                           "stderr": subprocess.STDOUT}
     if os.name == "nt":
-        # 同 watchdog：CREATE_NO_WINDOW 才不给控制台程序分配窗口，
-        # DETACHED_PROCESS 在实践里照样会弹一个黑窗（实测过）。
-        popen_kwargs["creationflags"] = _NO_WINDOW | 0x00000200
+        # 隐藏控制台，理由见 watchdog._spawn_detached 的注释。
+        # run.py 是真正会渲染的进程（会拉起 playwright 的 node 驱动），
+        # 所以它这一级必须给隐藏控制台，否则就是桌面上一秒一闪的窗口。
+        _info = subprocess.STARTUPINFO()
+        _info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        _info.wShowWindow = 0
+        popen_kwargs["creationflags"] = 0x00000010 | 0x00000400
+        popen_kwargs["startupinfo"] = _info
     else:
         popen_kwargs["start_new_session"] = True
     proc = subprocess.Popen(cmd, **popen_kwargs)

@@ -32,19 +32,30 @@ import os
 import subprocess
 
 CREATE_NO_WINDOW = 0x08000000
+DETACHED_PROCESS = 0x00000008
 _applied = False
 
 
 def install() -> bool:
-    """给 subprocess.Popen 打补丁。幂等。返回是否本次真的打了补丁。"""
+    """给 subprocess.Popen 打补丁：强制所有子进程无控制台窗口。幂等。
+
+    **强制覆盖**，不是「仅在缺省时补」。原因是实测出来的：playwright 启动
+    node 驱动时自己传了 creationflags，所以「没传才补」的写法漏掉了它 ——
+    隐藏控制台 + winflags 仍然留下 1 个 conhost（实测 150 秒全链路抓到的）。
+
+    覆盖时要**去掉 DETACHED_PROCESS**：它和 CREATE_NO_WINDOW 语义互斥
+    （一个说「脱离现有控制台」，一个说「不给控制台」），同时给会让
+    CreateProcess 失败或退回到「分配新控制台」——那正是要避免的。
+    """
     global _applied
     if _applied or os.name != "nt":
         return False
     original = subprocess.Popen.__init__
 
     def patched(self, *args, **kwargs):                  # type: ignore[no-untyped-def]
-        if not kwargs.get("creationflags"):
-            kwargs["creationflags"] = CREATE_NO_WINDOW
+        flags = int(kwargs.get("creationflags") or 0)
+        flags &= ~DETACHED_PROCESS
+        kwargs["creationflags"] = flags | CREATE_NO_WINDOW
         original(self, *args, **kwargs)
 
     subprocess.Popen.__init__ = patched                  # type: ignore[assignment]
@@ -56,8 +67,7 @@ def windows() -> int:
     """已装的库中，本进程树里仍然会自己分配控制台的已知点。
 
     playwright 的 node 驱动是实测会弹窗的那个（父=node.exe 的 conhost）。
-    它自带 creationflags，所以 install() 拦不住。真要清零得改
-    site-packages/playwright/driver/package/… 里的启动代码，那不值得——
-    隐藏控制台已经把它从 3 次压到 1 次，剩下的间隔长、窗口小。
+    它自带 creationflags，所以必须**强制覆盖**而不是「缺省时补」——
+    两者都装的情况下仍实测到 1 次残留，见 install() 的说明。
     """
     return 1 if os.name == "nt" else 0
