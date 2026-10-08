@@ -30,7 +30,20 @@ LOCK_DIR = Path(tempfile.gettempdir()) / "beacon_test_pipeline.lock"
 
 
 def _run_pipeline(*extra: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, BEACON_PIPELINE_LOCK=str(LOCK_DIR))
+    # 子进程输出编码必须**显式**钉死，不能靠继承环境。
+    #
+    # 2026-10-05 实测踩过：这里 decoding 已经写了 encoding="utf-8"，但子进程
+    # 实际按 GBK（系统 ANSI 代码页）输出，于是每个中文字符都变成 U+FFFD，
+    # 断言「将执行」「已有一轮流水线在跑」全部找不到 —— 报错信息里满屏
+    # \ufffd，看着像脚本坏了，其实是编码对不上。
+    #
+    # 为什么之前时好时坏：子进程用哪个编码取决于它继承到的
+    # PYTHONUTF8 / PYTHONIOENCODING / 系统代码页，凡是不由本测试控制。
+    # 所以两个方向都要钉：子进程 PYTHONIOENCODING=utf-8，本进程按 utf-8 解。
+    env = dict(os.environ,
+               BEACON_PIPELINE_LOCK=str(LOCK_DIR),
+               PYTHONUTF8="1",
+               PYTHONIOENCODING="utf-8")
     return subprocess.run(
         [sys.executable, "-B", str(PIPELINE), *extra],
         cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",

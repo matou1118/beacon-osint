@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Any
 
 import streamlit as st
-import streamlit.components.v1 as components
 import yaml
 
 from theme_config import THEME_LABELS, THEME_ORDER, get_theme_js_colors
 
 ROOT = Path(__file__).resolve().parent
 GEO_DIR = ROOT / "assets" / "geo"
-VENDOR_DIR = ROOT / "assets" / "vendor"
+VENDOR_URL = "/app/static/vendor"
+GEO_URL = "/app/static/geo"
 
 PROVINCE_COORDINATES = {
     "110000": [116.4, 39.9],
@@ -125,6 +125,27 @@ def map_geojson(level: str) -> dict[str, Any]:
     return _normalize_geojson(level)
 
 
+@lru_cache(maxsize=1)
+def publish_geojson() -> str:
+    """把归一化后的三级 geojson 落盘到 static/geo，返回可被浏览器 fetch 的目录。
+
+    归一化后仍有 20MB（county 一级就 12MB），内联进 iframe 意味着每次进地图都要
+    重传+重解析 20MB，实测这一页切换要 8 秒。落到 static/ 后浏览器按 URL 缓存，
+    第二次进地图几乎零成本。源文件更新（mtime 变化）时自动重建。
+
+    依赖 .streamlit/config.toml 的 server.enableStaticServing=true。
+    """
+    out_dir = ROOT / "static" / "geo"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for level in ("province", "city", "county"):
+        src = GEO_DIR / f"china-{level}.geojson"
+        dst = out_dir / f"china-{level}.geojson"
+        if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+            continue
+        dst.write_text(_safe_script_json(map_geojson(level)), encoding="utf-8")
+    return GEO_URL
+
+
 def _record_projection(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     fields = ("id", "title", "source_url", "publish_date", "issuing_body", "gov_level", "region_province", "region_city", "region_county", "category_l1", "category_l2", "target_group", "target_industry", "amount", "deadline", "needs_review", "last_seen_at", "fetched_at")
     return [{key: record.get(key) for key in fields} for record in records if not record.get("needs_review")]
@@ -142,7 +163,6 @@ def build_map_context(records: list[dict[str, Any]]) -> dict[str, Any]:
     current_year = datetime.now().year
     return {
         "records": projected,
-        "geojson": {level: map_geojson(level) for level in ("province", "city", "county")},
         "lookups": _admin_lookups(),
         "categories": _categories(),
         "years": years or [str(current_year)],
@@ -156,7 +176,7 @@ def _safe_script_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
 
-def _map_script(theme_id: str) -> str:
+def _map_script(theme_id: str, context: dict[str, Any] | None = None) -> str:
     tc = get_theme_js_colors(theme_id)
     theme_options_js = json.dumps(
         {tid: {"label": THEME_LABELS[tid], "colors": get_theme_js_colors(tid)} for tid in THEME_ORDER},
@@ -164,14 +184,30 @@ def _map_script(theme_id: str) -> str:
     )
     return r"""
 const DATA = __DATA__;
+const GEO_BASE = '__GEO_BASE__';
 const THEME_ID = '__THEME_ID__';
 const THEME_COLORS = __THEME_COLORS__;
 const ALL_THEMES = __ALL_THEMES__;
 const chart = echarts.init(document.getElementById('map'), null, {renderer: 'canvas'});
 const state = {mode: 'globe', level: 'province', province: null, city: null, county: null, year: '5y', category: 'all', realtime: false, transitioning: false, theme: THEME_ID};
 const levelNames = {province:'全国', city:'城市', county:'区县'};
+// 分类口径必须与 config/categories.yaml 的 l1 枚举一致：下拉里能勾到的类，
+// 统计面板也要能归类，否则新增类会既不算政策也不算民生，看起来像数据丢了。
+const POLICY_CATEGORIES = ['行业政策','行业补贴','人才政策','养老与社区','政策发布','政策法规','规划计划','政策解读','行政审批'];
+const LIVELIHOOD_CATEGORIES = ['活动通知','招生信息','公招信息','公务员考试','军队招录','公示公告','非公告体裁'];
+// 分类口径必须与 config/categories.yaml 的 l1 枚举一致：下拉里能勾到的类，
+// 统计面板也要能归类，否则新增类会既不算政策也不算民生，看起来像数据丢了。
+const POLICY_CATEGORIES = ['行业政策','行业补贴','人才政策','养老与社区','政策发布','政策法规','规划计划','政策解读','行政审批'];
+const LIVELIHOOD_CATEGORIES = ['活动通知','招生信息','公招信息','公务员考试','军队招录','公示公告','非公告体裁'];
 const maps = {};
-Object.keys(DATA.geojson).forEach(level => { maps[level] = DATA.geojson[level]; });
+// 边界数据走 HTTP 拉取（浏览器缓存），不再内联 20MB；进页面时后台预热，
+// 首次 fetch 期间仍看得到地球，不卡交互。
+let geoFailed = false;
+const geoReady = Promise.all(['province','city','county'].map(function(level) {
+  return fetch(GEO_BASE + '/china-' + level + '.geojson')
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(d) { maps[level] = d; });
+})).catch(function() { geoFailed = true; });
 const coords = DATA.coordinates;
 const shortNames = DATA.province_short_names;
 const currentYear = Number(new Date().getFullYear());
@@ -242,8 +278,8 @@ function aggregate(level) {
     const value = values.get(code) || {name: code, value: 0, latest: '', policy: 0, livelihood: 0, categories: {}, yearBreakdown: {}};
     value.value += 1;
     if (String(record.publish_date || '') > String(value.latest || '')) value.latest = record.publish_date || '';
-    if (record.category_l1 === '行业政策' || record.category_l1 === '行业补贴' || record.category_l1 === '人才政策' || record.category_l1 === '养老与社区') value.policy += 1;
-    if (record.category_l1 === '活动通知' || record.category_l1 === '招生信息' || record.category_l1 === '公招信息' || record.category_l1 === '公务员考试' || record.category_l1 === '军队招录') value.livelihood += 1;
+    if (POLICY_CATEGORIES.includes(record.category_l1)) value.policy += 1;
+    if (LIVELIHOOD_CATEGORIES.includes(record.category_l1)) value.livelihood += 1;
     value.categories[record.category_l1 || '其他'] = (value.categories[record.category_l1 || '其他'] || 0) + 1;
     const yr = String(record.publish_date || '').slice(0,4) || '未知';
     value.yearBreakdown[yr] = (value.yearBreakdown[yr] || 0) + 1;
@@ -553,6 +589,8 @@ function buildFlyLines(values) {
 }
 
 function setMap() {
+  if (geoFailed) { document.getElementById('crumb').textContent = '地图边界未加载：请确认 server.enableStaticServing 已开启'; return; }
+  if (!maps[state.level]) { geoReady.then(setMap); return; }
   const mapName = 'active_' + state.level;
   echarts.registerMap(mapName, mapPayload());
   const values = aggregate(state.level);
@@ -656,8 +694,8 @@ function renderPanel(values) {
     return acc;
   }, new Map()).entries()].sort((a,b) => b[1]-a[1]);
 
-  const policy = rows.filter(row => ['行业政策','行业补贴','人才政策','养老与社区'].includes(row.category_l1)).length;
-  const livelihood = rows.filter(row => ['活动通知','招生信息','公招信息','公务员考试','军队招录'].includes(row.category_l1)).length;
+  const policy = rows.filter(row => POLICY_CATEGORIES.includes(row.category_l1)).length;
+  const livelihood = rows.filter(row => LIVELIHOOD_CATEGORIES.includes(row.category_l1)).length;
 
   const yearData = [...rows.reduce((acc, row) => {
     const yr = String(row.publish_date || '').slice(0,4) || '未知';
@@ -671,7 +709,7 @@ function renderPanel(values) {
   document.getElementById('panel-policy').textContent = selected ? selected.policy : policy;
   document.getElementById('panel-life').textContent = selected ? selected.livelihood : livelihood;
 
-  const catColors = {'行业政策':C.accent,'行业补贴':C.accent,'人才政策':C.accent,'养老与社区':C.accent,'活动通知':C.amber,'招生信息':C.amber,'公招信息':C.amber,'公务员考试':C.amber,'军队招录':C.amber,'公务员考试':C.amber,'招聘信息':C.amber,'招标信息':C.red,'商业机会':C.red};
+  const catColors = {'行业政策':C.accent,'行业补贴':C.accent,'人才政策':C.accent,'养老与社区':C.accent,'政策发布':C.accent,'政策法规':C.accent,'规划计划':C.accent,'政策解读':C.accent,'活动通知':C.amber,'招生信息':C.amber,'公招信息':C.amber,'公务员考试':C.amber,'军队招录':C.amber,'公示公告':C.amber,'非公告体裁':C.amber,'招聘信息':C.amber,'招标信息':C.red,'行政审批':C.red,'商业机会':C.red};
   document.getElementById('categories').innerHTML = categories.slice(0,8).map(([name,count]) => {
     const pct = Math.min(100, count / Math.max(1, rows.length) * 100);
     const color = catColors[name] || C.muted;
@@ -752,7 +790,7 @@ window.addEventListener('resize', () => { chart.resize(); if (globeApi) globeApi
 
 // 初始化 — 显示地球
 showGlobe();
-""".replace("__DATA__", _safe_script_json(build_map_context.__wrapped__ if hasattr(build_map_context, '__wrapped__') else {})).replace("__THEME_ID__", theme_id).replace("__THEME_COLORS__", _safe_script_json(tc)).replace("__ALL_THEMES__", _safe_script_json({tid: {"label": THEME_LABELS[tid], "colors": get_theme_js_colors(tid)} for tid in THEME_ORDER}))
+""".replace("__DATA__", _safe_script_json(context or {})).replace("__GEO_BASE__", publish_geojson()).replace("__THEME_ID__", theme_id).replace("__THEME_COLORS__", _safe_script_json(tc)).replace("__ALL_THEMES__", _safe_script_json({tid: {"label": THEME_LABELS[tid], "colors": get_theme_js_colors(tid)} for tid in THEME_ORDER}))
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -763,13 +801,8 @@ def _cached_map_context(records: list[dict[str, Any]]) -> dict[str, Any]:
 def render_china_map(records: list[dict[str, Any]], theme_id: str = "cyber_neon", height: int = 820) -> None:
     context = _cached_map_context(records)
     tc = get_theme_js_colors(theme_id)
-    echarts_source = (VENDOR_DIR / "echarts.min.js").read_text(encoding="utf-8")
-    three_source = (VENDOR_DIR / "three.min.js").read_text(encoding="utf-8")
 
-    # 构建JS脚本 — 先替换占位符再替换数据
-    script_template = _map_script(theme_id)
-    # _map_script 中已经做了占位符替换，但 DATA 需要在这里注入
-    script = script_template.replace("__DATA__", _safe_script_json(context))
+    script = _map_script(theme_id, context)
 
     map_h = height - 160
 
@@ -1001,9 +1034,10 @@ time{{color:var(--tc-muted);font-size:10px}}
   </div>
 </div>
 
-<script>{three_source}</script>
-<script>{echarts_source}</script>
+<script src="{VENDOR_URL}/three.min.js"></script>
+<script src="{VENDOR_URL}/echarts.min.js"></script>
 <script>{script}</script>
 </body></html>"""
 
+    import streamlit.components.v1 as components
     components.html(html_doc, height=height, scrolling=True)

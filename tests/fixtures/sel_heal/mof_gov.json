@@ -1,0 +1,8 @@
+{
+  "source_id": "mof_gov",
+  "url": "https://www.mof.gov.cn/gkml/",
+  "list_selector": null,
+  "link_selector": null,
+  "detail_pattern": "/\\d{6}/t\\d{8}_\\d+\\.html?$",
+  "bytes": 44474
+}

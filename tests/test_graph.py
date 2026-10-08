@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from graph_service import graph_neighbors, graph_summary, rebuild_graph
+from graph_service import graph_neighbors, graph_search, graph_summary, rebuild_graph
 from storage.db import Database
-from storage.models import GraphEdge, GraphEvidence
+from storage.models import GraphEdge, GraphEvidence, GraphNode
 
 
 class GraphTests(unittest.TestCase):
@@ -50,6 +50,21 @@ class GraphTests(unittest.TestCase):
         self.assertIsNotNone(data)
         self.assertIn("ISSUED_BY", {item["edge_type"] for item in data["neighbors"]})
         self.assertIn("LOCATED_IN", {item["edge_type"] for item in data["neighbors"]})
+        database.close()
+
+    def test_graph_search_is_the_only_way_to_reach_a_node(self) -> None:
+        """图谱页没有全量节点列表，搜索是入口 —— 搜不到就是死路。"""
+        database = self.make_database()
+        rebuild_graph(database)
+        hits = graph_search(database, "人才")
+        self.assertTrue(any(item["id"] == "announcement:1" for item in hits))
+        self.assertEqual(graph_search(database, "zzzz-not-exist"), [])
+        # 空关键词也要给一批，否则用户没有任何起点
+        self.assertGreater(len(graph_search(database, "", 5)), 0)
+        # 空标题记录建出的无名节点 canonical_name=''，按长度排序会排最前，默认列表就成了垃圾清单
+        with database.session() as session:
+            session.add(GraphNode(id="announcement:999", node_type="announcement", canonical_name="", attributes={}))
+        self.assertTrue(all(item["name"].strip() for item in graph_search(database, "", 10)))
         database.close()
 
     def test_summary_counts_nodes_and_edges(self) -> None:

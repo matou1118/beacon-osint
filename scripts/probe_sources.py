@@ -67,6 +67,16 @@ def probe_one_source(source: dict, args: argparse.Namespace) -> dict:
         command, cwd=ROOT, capture_output=True, text=True,
         timeout=args.timeout, check=False,
     )
+    # main.py 拿不到采集锁时会「跳过」并正常退出（exit_code=0）。那种情况下
+    # results 里 success、records=0，看上去像「源采不到」，实际是**根本没跑**。
+    #
+    # 2026-10-02 实测踩过：通宵采集在跑，68 个源的探测全部被锁挡掉，
+    # 报告写着「success 32 / failed 0 / records 0」——一个「全都成功、
+    # 一条没采到」的报告，差点被当成「这 68 个源全废了」。
+    #
+    # 所以这里必须把「被锁跳过」和「真的采不到」区分开，否则结论会反。
+    stdout = completed.stdout or ""
+    locked = "另一个采集进程正在运行" in stdout or "正在运行（pid" in stdout
     result: dict = {
         "source_id": source_id,
         "level": source.get("level"),
@@ -76,9 +86,17 @@ def probe_one_source(source: dict, args: argparse.Namespace) -> dict:
         "exit_code": completed.returncode,
         "at": datetime.now(timezone.utc).isoformat(),
     }
-    if completed.stdout.strip():
+    if locked:
+        # 明确标成 skipped，别混进 success。记 skipped 的源在汇总里单列，
+        # 重跑即可 —— 它们不是采不到，只是排队没轮到。
+        result["status"] = "skipped_locked"
+        result["records"] = 0
+        result["note"] = "采集锁被占用，本次未实际采集（不是源的问题）"
+        append_probe_result(result)
+        return result
+    if stdout.strip():
         try:
-            raw = json.loads(completed.stdout)
+            raw = json.loads(stdout)
             if isinstance(raw, dict):
                 result["records"] = len(raw.get("records") or [])
                 result["errors"] = list(raw.get("sources") or [{}])[0].get("errors", []) if raw.get("sources") else []

@@ -29,6 +29,11 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+
+# 本脚本用 tasklist / powershell / wmic 查进程，每个都要控制台。
+# 不装 winflags 就是手工查一次状态闪一个黑框（2026-10-03 实测）。
+from lighthouse.winflags import install as _install_no_window  # noqa: E402
+_install_no_window()
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -170,8 +175,13 @@ def _clear_stale_lock() -> None:
 
 
 def _alive(pid: int) -> bool:
-    out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"],
-                         capture_output=True, text=True).stdout or ""
+    # CREATE_NO_WINDOW：tasklist 自己要控制台，不给就闪一个框（2026-10-03 实测）。
+    # text=True 用默认 utf-8 解 GBK 输出会 UnicodeDecodeError，所以显式 mbcs。
+    out = subprocess.run(
+        ["tasklist", "/FI", f"PID eq {pid}"],
+        capture_output=True, timeout=10,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    ).stdout.decode("mbcs", errors="replace")
     return str(pid) in out
 
 

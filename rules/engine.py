@@ -19,11 +19,15 @@ def _resolve(value: Any, user: Mapping[str, Any]) -> Any:
     return value
 
 
+def _text_value(record: Mapping[str, Any]) -> str:
+    return " ".join(str(record.get(key) or "") for key in ("title", "content", "category_l1", "category_l2"))
+
+
 def _field_value(record: Mapping[str, Any], user: Mapping[str, Any], field: str) -> Any:
     if field.startswith("user."):
         return lookup({"user": user}, field)
     if field in {"text", "announcement.text"}:
-        return " ".join(str(record.get(key) or "") for key in ("title", "content", "category_l1", "category_l2"))
+        return _text_value(record)
     if field.startswith("announcement."):
         field = field[len("announcement.") :]
     return record.get(field)
@@ -140,6 +144,20 @@ def _has_positive_employment(value: Any) -> bool:
     positive = ("明确保障", "包分配", "就业安排", "就业保障")
     negative = ("不保障", "不承诺", "原则上不安排", "不保证")
     return any(_normalize(term) in text for term in positive) and not any(_normalize(term) in text for term in negative)
+
+
+def text_matches_keywords(record: Mapping[str, Any], keywords: Any) -> bool:
+    """搜索关键词过滤 —— 与评分规则「关键词匹配」共用 `_text_value` 同一段文本。
+
+    keywords 为空恒为 True（不做过滤）；单个关键词内部按空白拆词，
+    「养老 补贴」命中任一词即算命中。空格在 `_normalize` 里会被抹掉，
+    所以拆词必须在归一化之前做。
+    """
+    terms = [part for item in _list_values(keywords) for part in str(item).split() if part.strip()]
+    if not terms:
+        return True
+    text = _normalize(_text_value(record))
+    return any(_normalize(term) in text for term in terms)
 
 
 def hard_filter_passes(record: Mapping[str, Any], user: Mapping[str, Any], config: Mapping[str, Any]) -> bool:

@@ -61,6 +61,10 @@ def optional_deps_health() -> dict[str, str]:
     return health
 
 
+# 句末标点：判断「这是正文还是导航」的核心信号。
+_SENT_MARKS = re.compile(r"[。！？；]")
+
+
 class BaseCollector(ABC):
     min_interval_seconds = 3.0
 
@@ -106,8 +110,232 @@ class BaseCollector(ABC):
                 follow_redirects=True,
                 timeout=float(self.source.get("timeout_seconds", 30)),
                 headers={"User-Agent": self.user_agent, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
+                # ★ 不读系统代理。
+                #
+                # 2026-10-03 实测：重启后 Windows 注册表里的系统代理
+                # （127.0.0.1:31180）连不上，而 collectors/net.py 的「代理自检」
+                # 正确地判定采集不能跑、整轮拒绝开跑 —— 于是采集彻底停摆。
+                # 但那些都是政府公开站点，**直连完全正常**：
+                # 实测 miit.gov.cn 0.3 秒、mee.gov.cn 0.1 秒拿到 200。
+                #
+                # 也就是说系统代理对采集既无必要又致命：它在浏览器里开着
+                # （给开发者翻墙用），却会让采集跟着一起断。
+                # ``trust_env=False`` 让 httpx 忽略 HTTP_PROXY/HTTPS_PROXY
+                # 和注册表代理设置，采集只走直连。
+                #
+                # 保留 net.py 的代理自检仍有意义：它现在的作用变成「告知」
+                # 而不是「拦截」——真需要走代理的部署改这里加回去即可。
+                trust_env=False,
             )
         self.allowed_domains = self._build_allowed_domains()
+
+
+    # 正文容器 class 名白名单。只作为快速命中项，不作唯一依据
+    # （真正兜底的是 _auto_locate_body）。
+    _FALLBACK_CONTAINERS = (
+        "show", "show_center", "article", "content", "detail", "zoom",
+        "TRS_Editor", "TRS_UEDITOR", "xl_content", "newsContent",
+        "conTxt", "article-content", "pages_content", "b-detail",
+    )
+
+    @staticmethod
+    def _body_looks_wrong(text: str, title: str) -> bool:
+        """抽出来的正文是不是「其实抓到的是导航/侧栏」。
+
+        判据两条，都是从实测来的：
+
+        * 正文里找不到标题的任何一段——标题就在页面上，正文却完全不含标题
+          片段，说明抽的根本不是正文区。
+        * 几乎没有句读——列表页导航是词条拼的，正文有句子。
+        """
+        body = (text or "").strip()
+        if not body:
+            return True
+        def _norm(text: str) -> str:
+            return re.sub(r"\s+", "", text or "")
+
+        # 标题和正文里的空格/全半角经常不一致（"关于 2025年" vs
+        # "关于2025年"），所以两边都去空白再比；仍找不到就取标题里
+        # 最长的一段连续汉字来比，避免被标点切碎。
+        # ── 判据一：句读 ──────────────────────────────────────────
+        # 导航/侧栏是词条拼的，正文有句子。这条**不依赖标题**。
+        if len(body) >= 120 and not _SENT_MARKS.search(body):
+            return True
+        # 很短的正文（<120字）没资格判错：短公告本来就可能只有一两句话。
+        if len(body) < 120:
+            return False
+
+        # ── 判据二：标题片段 ─────────────────────────────────────
+        # 只有正文够长时才用这条，因为它依赖标题出现在正文里。
+        #
+        # 实测踩过：trafilatura 的 txt 模式**不把 <h1> 算进正文**，
+        # 所以干净的结果里根本没有标题，而「正文必须含标题」会把
+        # 它误判成抽到导航（test_content_excludes_site_chrome 现场抓到）。
+        # 于是这条降级成「有标题才查，查不到不算错」，只作为
+        # 长正文下的加强判据，不作为独立否决项。
+        head = _norm(title)
+        if head and len(head) >= 6:
+            body_n = _norm(body)
+            if head[:10] in body_n:
+                return False                      # 明确是正文
+            runs = re.findall(r"[\u4e00-\u9fa5]{6,}", title or "")
+            runs.sort(key=len, reverse=True)
+            hit = any(r in body_n for r in runs[:2])
+            if not hit and len(body) >= 400:
+                # 长到 400 字以上、标题片段一处都对不上，才判错。
+                # 300 字左右的短公告不适用——它们可能只复述标题。
+                return True
+        return False
+
+    def _extract_body(self, html: str, title: str = "") -> str:
+        """抽正文，**并校验结果**，不对就换策略重试。
+
+        2026-10-03 实测（sd_rst 一轮 598 条里 350 条正文是导航）：
+        trafilatura 在这些页面上选错了 DOM 区域——抽到了 483 字符的
+        「索引 服务 日一二三四五六最新发布」日历组件，而真正的文章在
+        `<div class="show">` 里（页面本身完好：55KB、正文齐全、HTTP 200）。
+
+        为什么它会选错：`show` 这种 class 名不含 content/article/detail
+        之类常见词，正文定位的启发式打分输了，日历组件反而排在前面。
+
+        关键是这个失败**完全静默**：页面能抓、标题能抽、日期能抽，
+        逐源结果记为 `ok`，正文却是导航。所以必须拿标题去校验抽取结果，
+        不合格就换策略，而不是直接采信。
+
+        重试策略（按代价从低到高）：
+          1. 带表格的 markdown 模式
+          2. 关掉 favor_precision / favor_recall 之外的不同参数组合
+          3. 自己找白名单里的正文容器（_FALLBACK_CONTAINERS）
+        """
+        if trafilatura is None:
+            return ""
+        attempts: list[dict[str, object]] = [
+            {"include_comments": False, "include_tables": True,
+             "output_format": "txt"},
+            {"include_comments": False, "include_tables": False,
+             "output_format": "txt"},
+            {"include_comments": False, "include_tables": True,
+             "output_format": "markdown", "favor_recall": True},
+        ]
+        best = ""
+        for kwargs in attempts:
+            try:
+                out = str(trafilatura.extract(html, **kwargs) or "")
+            except TypeError:
+                try:
+                    out = str(trafilatura.extract(html) or "")
+                except Exception:                       # noqa: BLE001
+                    continue
+            except Exception:                           # noqa: BLE001
+                continue
+            if len(out) > len(best):
+                best = out
+            if not self._body_looks_wrong(out, title):
+                return out
+
+        # 三次都不合格 -> 自己找容器（此时 best 多半是导航，宁可不要）
+        container = self._find_body_container(html)
+        if container and not self._body_looks_wrong(container, title):
+            return container
+        # 白名单没命中（或命中了但校验不过）-> 自动定位。
+        #
+        # 硬编码 class 名覆盖不全：2026-10-03 实测各站正文容器叫 show / art /
+        # TRS_Editor / warp_list 各不相同，而 sc_jx_gov、sc_xz_gov、sc_gs_gov
+        # 抓到的是全站导航条，它们的容器 class 压根不在白名单里。
+        # 「句读密度高 + 链接占比低」是结构特征，与 class 无关。
+        auto = self._auto_locate_body(html)
+        if auto and not self._body_looks_wrong(auto, title):
+            return auto
+        # 容器也没通过校验。
+        #
+        # **不要退回 best。** best 是所有尝试里最长的那份，而长度大不等于
+        # 是正文——2026-10-03 实测：同一份 html 上，trafilatura 的
+        # favor_recall 档（301 字符）比干净档（293 字符）更长，却多带了页脚
+        # 「版权所有 备案号 浏览次数」。返回 best 就等于把页脚放回去，直接打破
+        # test_content_excludes_site_chrome_when_trafilatura_available。
+        #
+        # 三档全不过时说明这页正文本来就难定位，正确做法是让上层升级到渲染级，
+        # 而不是硬塞一份已知混着 chrome 的内容。
+        if not self._body_looks_wrong(best, title):
+            return best
+        return ""
+
+    # 块级候选容器：正文几乎总在这些标签里
+    _BODY_TAGS = ("div", "article", "section", "td")
+
+    def _auto_locate_body(self, html: str) -> str:
+        """**自动**定位正文块，不靠 class 名硬编码。
+
+        为什么不用 class 白名单：2026-10-03 实测各站的正文容器 class 五花八门
+        （``show`` / ``art`` / ``TRS_Editor`` / ``warp_list``），硬编码既覆盖不全
+        又会漏掉新站。而「正文」有两个稳定的**结构**特征，跟 class 无关：
+
+        * **句读密度高**——正文是句子（。！？；），导航是词条拼接
+        * **链接占比低**——正文里的文字不是链接；导航条整条都是 ``<a>``
+
+        实测分离度很干净：
+
+            sc_jx_gov  正文 2001 字 句读 15.99/千字 链接占比 0%
+            sc_xz_gov  正文 3658 字 句读 11.48/千字 链接占比 0%
+            （而导航条几乎 100% 是链接，句读接近 0）
+
+        打分 = 句读密度为主、链接占比为惩罚项，再按长度微调。取最高分那个。
+        白名单只当**加速**用（命中就直接返回），不作为唯一依据。
+        """
+        if BeautifulSoup is None:
+            return ""
+        try:
+            document = BeautifulSoup(html or "", "html.parser")
+        except Exception:                                 # noqa: BLE001
+            return ""
+        for tag in document(["script", "style", "nav", "footer", "header",
+                             "noscript"]):
+            tag.decompose()
+
+        best_score = 0.0
+        best_text = ""
+        for node in document.find_all(self._BODY_TAGS):
+            text = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+            size = len(text)
+            if size < 150:
+                continue
+            marks = len(_SENT_MARKS.findall(text))
+            if marks == 0:
+                continue                      # 没有句读的块不可能是正文
+            density = marks * 1000.0 / size
+            anchors = node.find_all("a")
+            link_chars = sum(len(a.get_text(strip=True)) for a in anchors)
+            link_ratio = link_chars / float(size)
+            # 句读密度是主项；链接占比 >30% 说明这整块是导航，扣得最狠。
+            score = density * (1.0 - min(link_ratio, 0.9))
+            # 极短的块（<400字）即便句读很高也可能只是摘要，略微压一下，
+            # 让同分时更长的那块胜出。
+            if size < 400:
+                score *= 0.9
+            if score > best_score:
+                best_score = score
+                best_text = text
+        return best_text
+
+    def _find_body_container(self, html: str) -> str:
+        """按class 白名单找最长的正文容器，取其文本。soup 不可用时返回空串。"""
+        if BeautifulSoup is None:
+            return ""
+        try:
+            document = BeautifulSoup(html or "", "html.parser")
+        except Exception:                               # noqa: BLE001
+            return ""
+        for tag in document(["script", "style", "nav", "footer", "header",
+                             "noscript"]):
+            tag.decompose()
+        best = ""
+        for name in self._FALLBACK_CONTAINERS:
+            for node in document.find_all(class_=lambda c: c and name in
+                                          " ".join(c if isinstance(c, list) else [c])):
+                text = self._clean(node.get_text(" ", strip=True))
+                if len(text) > len(best):
+                    best = text
+        return best
 
     def _build_allowed_domains(self) -> set[str]:
         domains = set()
@@ -382,10 +610,7 @@ class BaseCollector(ABC):
                     if publish_date:
                         break
         if trafilatura is not None:
-            try:
-                content = str(trafilatura.extract(html, include_comments=False, include_tables=True, output_format="txt") or "")
-            except TypeError:
-                content = str(trafilatura.extract(html) or "")
+            content = self._extract_body(html, title)
         if not content and soup is not None:
             content = self._clean(soup.get_text(" ", strip=True))
         if not content:

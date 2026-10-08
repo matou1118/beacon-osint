@@ -41,7 +41,11 @@ def _alive(pid: int) -> bool:
     if not pid:
         return False
     if os.name == "nt":
-        return str(pid) in os.popen(f'tasklist /FI "PID eq {pid}" 2>NUL').read()
+        # tasklist 按控制台代码页（GBK）输出，PYTHONUTF8=1 时 os.popen 的 TextIOWrapper
+        # 会按 UTF-8 严格解码并抛 UnicodeDecodeError，整个"灯塔采集"页直接渲染失败。
+        # .read() 不吃 errors 参数，所以从 buffer 读字节再自己宽松解码。
+        with os.popen(f'tasklist /FI "PID eq {pid}" 2>NUL') as proc:
+            return str(pid) in proc.buffer.read().decode("utf-8", "replace")
     try:
         os.kill(pid, 0)
         return True
@@ -104,9 +108,26 @@ def start(rounds: int, minutes: int, stale: int, limit: int, workers: int,
            "--minutes", str(minutes), "--deadline", deadline,
            "--stale", str(stale), "--limit", str(limit),
            "--workers", str(workers), "--repair-batch", str(repair_batch)]
-    subprocess.Popen(cmd, cwd=str(ROOT),
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    # 隐藏控制台，**不是** CREATE_NO_WINDOW。理由见 lighthouse/launch.py 和
+    # lighthouse/watchdog.py 的实测：CREATE_NO_WINDOW 让进程没有控制台，于是
+    # playwright 的 node 驱动（以及 watchdog 轮询用的 tasklist 等控制台子进程）
+    # 会自己分配一个新的 conhost.exe——桌面上一秒一闪、约每分钟一次。
+    # 给一个**隐藏的控制台**（CREATE_NEW_CONSOLE + SW_HIDE），子孙继承它，
+    # 谁都不再自己分配。实测：CREATE_NO_WINDOW -> 3 次 conhost；
+    # 隐藏控制台 + winflags 全局补丁 -> 0 次。下游 watchdog→overnight→run
+    # 每一级都已自带隐藏控制台 + winflags，唯独 UI 这第一级之前用错了标志。
+    popen_kwargs: dict = {"cwd": str(ROOT),
+                          "stdout": subprocess.DEVNULL,
+                          "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        info = subprocess.STARTUPINFO()
+        info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        info.wShowWindow = 0                       # SW_HIDE
+        popen_kwargs["creationflags"] = 0x00000010 | 0x00000400   # NEW_CONSOLE | UNICODE_ENV
+        popen_kwargs["startupinfo"] = info
+    else:
+        popen_kwargs["start_new_session"] = True
+    subprocess.Popen(cmd, **popen_kwargs)
 
 
 def stop() -> None:
@@ -204,11 +225,11 @@ def render(db_path: str = "data/beacon.db") -> None:
                               for c in changes[-4:]))
     if running:
         b1, b2, b3 = st.columns([1, 1, 2])
-        if b1.button("优雅停止", type="primary", use_container_width=True,
+        if b1.button("优雅停止", type="primary", width="stretch",
                      help="当前轮跑完才退出，不丢已采到的数据"):
             stop()
             st.rerun()
-        if b2.button("强制停止", use_container_width=True,
+        if b2.button("强制停止", width="stretch",
                      help="立刻杀掉所有相关进程。调度器卡住不退时用"):
             kill_all()
             st.rerun()
@@ -244,7 +265,7 @@ def render(db_path: str = "data/beacon.db") -> None:
             [{"轮": r["round"], "用时(分)": r["minutes"], "退出码": r["exit"],
               "入库前": r["db_before"], "入库后": r["db_after"], "净增": r["gained"],
               "时间": r["at"][5:16].replace("T", " ")} for r in rounds_log],
-            use_container_width=True, hide_index=True, height=min(420, 40 + 36 * len(rounds_log)))
+            width="stretch", hide_index=True, height=min(420, 40 + 36 * len(rounds_log)))
 
     # ---------------------------------------------------------- 自迭代
     si = (state or {}).get("self_iteration") or []

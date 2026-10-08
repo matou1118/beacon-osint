@@ -43,7 +43,22 @@ def open_view_retry(view: str, attempts: int = 3) -> AppTest:
 
 
 def visible_text(at: AppTest) -> str:
+    """收集页面上所有可见文字。
+
+    必须包含 **tab 标题**：视图把「采集进度」「采集吞吐与产出」「数据体检」
+    收进了 st.tabs，于是它们不再是 section-label，而是 tab 的 label。只扫
+    顶层 markdown/caption 会漏掉它们，让本该通过的视图测试报「区块缺失」。
+
+    tab 内容也要扫：AppTest 里 tab.markdown / tab.caption 是独立元素树，
+    不在顶层列表中。
+    """
     parts = [m.value for m in at.markdown] + [c.value for c in at.caption]
+
+    for tab in at.tabs:
+        parts.append(getattr(tab, "label", "") or "")
+        parts.extend(m.value for m in tab.markdown)
+        parts.extend(c.value for c in tab.caption)
+
     return "\n".join(str(part) for part in parts)
 
 

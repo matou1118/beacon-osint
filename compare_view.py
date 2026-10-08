@@ -260,26 +260,26 @@ def _render_discovered(db_path: str) -> None:
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.download_button("导出 CSV", data=to_csv(result).encode("utf-8-sig"),
-                           file_name=f"对比_{chosen}.csv", mime="text/csv", use_container_width=True)
+                           file_name=f"对比_{chosen}.csv", mime="text/csv", width="stretch")
     with c2:
         st.download_button("导出 JSON", data=json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8"),
-                           file_name=f"对比_{chosen}.json", mime="application/json", use_container_width=True)
+                           file_name=f"对比_{chosen}.json", mime="application/json", width="stretch")
     with c3:
         excel = to_excel(result)
         if excel is None:
             # Still a download_button so all four exports look and behave the same.
             st.download_button("导出 Excel（需 pip install openpyxl）", data=b"",
                                file_name=f"对比_{chosen}.xlsx", mime="application/octet-stream",
-                               disabled=True, use_container_width=True,
+                               disabled=True, width="stretch",
                                help="CSV 与 JSON 已包含同样的数据；装 openpyxl 后此处可导出 xlsx。")
         else:
             st.download_button("导出 Excel", data=excel,
                                file_name=f"对比_{chosen}.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                               use_container_width=True)
+                               width="stretch")
     with c4:
         st.download_button("导出 Markdown 模板", data=to_markdown(result).encode("utf-8"),
-                           file_name=f"对比_{chosen}.md", mime="text/markdown", use_container_width=True)
+                           file_name=f"对比_{chosen}.md", mime="text/markdown", width="stretch")
 
     with st.expander("对比结果 JSON（接口结构模板）"):
         st.code(json.dumps(result, ensure_ascii=False, indent=2), language="json")
@@ -323,10 +323,10 @@ def _render_registered(db_path: str) -> None:
     with left:
         csv_text = "\n".join(",".join(_quote(cell) for cell in line) for line in to_csv_rows(matrix))
         st.download_button("导出 CSV", data=csv_text.encode("utf-8-sig"),
-                           file_name=f"对比_{chosen}.csv", mime="text/csv", use_container_width=True)
+                           file_name=f"对比_{chosen}.csv", mime="text/csv", width="stretch")
     with right:
         st.download_button("导出 JSON", data=json.dumps(matrix, ensure_ascii=False, indent=2).encode("utf-8"),
-                           file_name=f"对比_{chosen}.json", mime="application/json", use_container_width=True)
+                           file_name=f"对比_{chosen}.json", mime="application/json", width="stretch")
 
 
 def _quote(cell: str) -> str:

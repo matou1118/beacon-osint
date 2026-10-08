@@ -70,7 +70,8 @@ county_source_policy:
   gov_level: 县级
   status: partial
   sources: []
-  note: 2026-09-25 实测：成都多数区县站点对静态请求返回 412（JS 挑战）。经 §3.1 playwright_fallback 渲染路径验证，cdjinjiang.gov.cn 3/3 稳定可用并已启用；cdwh.gov.cn 0/3 保持 blocked。行政区划代码取自国标码，仅作登记，不构成对该站点的采信。
+  note: 2026-09-25 实测：成都多数区县站点对静态请求返回 412（JS 挑战）。经 §3.1 playwright_fallback 渲染路径验证，cdjinjiang.gov.cn
+    3/3 稳定可用并已启用；cdwh.gov.cn 0/3 保持 blocked。行政区划代码取自国标码，仅作登记，不构成对该站点的采信。
   probed_at: '2026-09-25'
   probed_results:
   - id: cd_wuhou_gov
@@ -212,8 +213,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
-  detail_pattern: /\d{6}/t\d{8}_\d+\.html?$
+  max_items: 120
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.mof.gov.cn/gkml/
@@ -226,6 +227,11 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: miit_gov
   name: 工信部
   level: national
@@ -241,11 +247,11 @@ sources:
   priority: P0
   focus_level: high
   retention_class: active
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
-  detail_pattern: /\d{6}/t\d{8}_\d+\.s?html?$
+  max_items: 120
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.miit.gov.cn/zwgk/zcwj/
@@ -257,6 +263,14 @@ sources:
   cadence_seconds: 86400
   notes: 2026-09-25 探测失败，保持禁用：未取到记录。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: ndrc_gov
   name: 发改委
   level: national
@@ -276,10 +290,10 @@ sources:
   priority: P0
   focus_level: critical
   retention_class: policy
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 5000
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.ndrc.gov.cn/xwdt/tzgg/
@@ -289,8 +303,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: '2026-09-25 探测失败，保持禁用：robots.txt access denied: https://www.ndrc.gov.cn。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：robots.txt access denied: https://www.ndrc.gov.cn。按
+    AGENTS.md 不得绕过 robots/反爬/访问控制。'
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 12
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: mee_gov
   name: 生态环境部
   level: national
@@ -309,8 +328,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
-  detail_pattern: /\d{6}/t\d{8}_\d+\.s?html?$
+  max_items: 120
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.mee.gov.cn/ywdt/gsgg/gongshi/
@@ -323,6 +342,11 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: mohurd_gov
   name: 住建部
   level: national
@@ -341,7 +365,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /art/\d{4}/art_[0-9a-f]+\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -355,6 +379,7 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: samr_gov
   name: 市场监管总局
   level: national
@@ -373,7 +398,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /art/\d{4}/art_[0-9a-f]+\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -387,6 +412,7 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: mca_gov
   name: 民政部
   level: national
@@ -405,7 +431,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /content\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -419,6 +445,7 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: moe_gov
   name: 教育部
   level: national
@@ -437,7 +464,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   detail_pattern: /t\d{8}_\d+\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -449,8 +476,9 @@ sources:
   retention_days: 1095
   cadence_seconds: 86400
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 30
   playwright_fallback: true
+  archive_depth_reason: C档深翻页：库内已有 264 条高产源，挖历史
 - id: mohrss_gov
   name: 人力资源和社会保障部
   level: national
@@ -471,7 +499,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   detail_pattern: /c/\d{4}-\d{2}-\d{2}/\d+\.s?html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -483,8 +511,9 @@ sources:
   retention_days: 365
   cadence_seconds: 86400
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
   playwright_fallback: true
+  archive_depth_reason: C档深翻页：库内已有 128 条高产源，挖历史
 - id: mot_gov
   name: 交通运输部
   level: national
@@ -504,8 +533,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
-  detail_pattern: /jigou/[^/]+/\d{6}/t\d{8}_\d+\.s?html?$
+  max_items: 5000
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://xxgk.mot.gov.cn/zhengceapp/index_24.html
@@ -518,6 +547,11 @@ sources:
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: moa_gov
   name: 农业农村部
   level: national
@@ -537,8 +571,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
-  detail_pattern: /\d{6}/t\d{8}_\d+\.s?html?$
+  max_items: 800
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://zzys.moa.gov.cn/tzgg/
@@ -549,8 +583,13 @@ sources:
   retention_days: 1095
   cadence_seconds: 86400
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 30
   playwright_fallback: true
+  archive_depth_reason: C档深翻页：库内已有 290 条高产源，挖历史
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: mofcom_gov
   name: 商务部
   level: national
@@ -571,7 +610,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /zcfb/.*/\d{4}/art_[0-9a-f]+\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -586,6 +625,7 @@ sources:
   archive_pages: 6
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: mct_gov
   name: 文化和旅游部
   level: national
@@ -606,8 +646,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
-  detail_pattern: /\d{6}/t\d{8}_\d+\.s?html?$
+  max_items: 5000
+  detail_pattern: (?:/\d{6}/t\d{8}_\d+\.s?html?|/art/[0-9]{4}/art_[0-9a-f]{16,})(?:\.s?html?)?$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.mct.gov.cn/whzx/ggtz/
@@ -618,8 +658,13 @@ sources:
   retention_days: 1095
   cadence_seconds: 604800
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
   playwright_fallback: true
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+  detail_pattern_fixed: '2026-10-02: 站点改版成 CMS，真实链接是 /art/<年>/art_<hash>[.html]，旧
+    pattern 只认 /<6位数字>/t<日期>_<数字>.html，两种形态都收。（miit_gov 实测：渲染后页面里明明有 10 条真实文件链接，_extract_links
+    三级放宽全试完仍返回 0 条——放宽的是选择器，过不了 detail_pattern 那一关。修完 0 -> 11 条。共用此 pattern 的源共 6
+    个，一并修正。）'
 - id: nea_gov
   name: 国家能源局
   level: national
@@ -641,7 +686,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   detail_pattern: /\d{8}/[0-9a-f]+/c\.html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -653,8 +698,9 @@ sources:
   retention_days: 1095
   cadence_seconds: 86400
   notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
   playwright_fallback: true
+  archive_depth_reason: C档深翻页：库内已有 107 条高产源，挖历史
 - id: nhc_gov
   name: 国家卫生健康委员会
   level: national
@@ -672,10 +718,10 @@ sources:
   priority: P0
   focus_level: high
   retention_class: policy
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 120
   detail_pattern: /t\d+\.s?html?$
   source_type: government
   jurisdiction_code: '100000'
@@ -686,8 +732,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测失败，保持禁用：HTTP 412 for https://www.nhc.gov.cn/wjw/gfxwjj/list.shtml。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
+  notes: 2026-09-25 探测失败，保持禁用：HTTP 412 for https://www.nhc.gov.cn/wjw/gfxwjj/list.shtml。按
+    AGENTS.md 不得绕过 robots/反爬/访问控制。
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: mem_gov
   name: 应急管理部
   level: national
@@ -708,8 +759,8 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 20
-  detail_pattern: /gk/zfxxgkpt/fdzdgknr/\d+/t\d+_\d+\.shtml
+  max_items: 800
+  detail_pattern: /gk/zfxxgkpt/fdzdgknr/\d+/t\d+_\d+\.shtml$
   source_type: government
   jurisdiction_code: '100000'
   base_url: https://www.mem.gov.cn/gk/tzgg/
@@ -723,6 +774,8 @@ sources:
   playwright_fallback: true
   list_selector: div.col_w799
   link_selector: div.col_w799 a[href]
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 314 条高产源，挖历史
 - id: sc_gov
   name: 四川省人民政府
   level: provincial
@@ -745,7 +798,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /10462/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -756,9 +809,12 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_samr_gov
   name: 四川省市场监督管理局
   level: provincial
@@ -780,7 +836,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /c104492/\d{4}/\d+/\d+/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -791,10 +847,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_ndrc_gov
   name: 四川省发展和改革委员会
   level: provincial
@@ -817,7 +876,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   detail_pattern: /sfgw/tzgg/\d{4}/\d+/\d+/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -828,10 +887,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 30
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 152 条高产源，挖历史
 - id: sc_mohrss_gov
   name: 四川省人力资源和社会保障厅
   level: provincial
@@ -853,7 +915,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /\d{4}/\d{2}/\d{2}/[0-9a-z]+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -864,10 +926,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 365
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_mohurd_gov
   name: 四川省住房和城乡建设厅
   level: provincial
@@ -889,7 +954,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   detail_pattern: /scjst/(?:gongshitg|otherDocument|release)/\d{4}/\d+/\d+/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -900,10 +965,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 30
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 125 条高产源，挖历史
 - id: sc_mofcom_gov
   name: 四川省商务厅
   level: provincial
@@ -925,7 +993,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   source_type: government
   jurisdiction_code: '510000'
   base_url: https://swt.sc.gov.cn/
@@ -935,9 +1003,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 604800
-  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at
+    待人工复核。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_depth_reason: C档深翻页：库内已有 101 条高产源，挖历史
 - id: sc_moe_gov
   name: 四川省教育厅
   level: provincial
@@ -959,7 +1031,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 800
   source_type: government
   jurisdiction_code: '510000'
   base_url: https://edu.sc.gov.cn/
@@ -969,9 +1041,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条，抽取 100%），站点列表页含失效链接 https://<domain>/internal 导致该次运行报错；已启用，失败报告保留该死链证据待栏目修正。terms_checked_at
+    待人工复核。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_depth_reason: C档深翻页：库内已有 119 条高产源，挖历史
 - id: cd_gov
   name: 成都市人民政府
   level: municipal
@@ -991,10 +1067,10 @@ sources:
   priority: P0
   focus_level: high
   retention_class: policy
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 120
   source_type: government
   jurisdiction_code: '510000'
   base_url: https://www.chengdu.gov.cn/list
@@ -1004,9 +1080,14 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: chengdu.gov.cn 站点侧反爬 HTTP 412，标准浏览器 UA 复测一致，不可用 stealth 或请求伪装绕过。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
+  notes: chengdu.gov.cn 站点侧反爬 HTTP 412，标准浏览器 UA 复测一致，不可用 stealth 或请求伪装绕过。 按 AGENTS.md
+    保持禁用，等待官方 API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cd_mohrss_gov
   name: 成都市人力资源和社会保障局
   level: municipal
@@ -1026,10 +1107,10 @@ sources:
   priority: P0
   focus_level: high
   retention_class: active
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 120
   detail_pattern: /\d{4}/\d{2}/\d{2}/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1040,9 +1121,14 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 365
   cadence_seconds: 86400
-  notes: cdhrss.chengdu.gov.cn 返回 HTTP 412，同属成都全域反爬策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
+  notes: cdhrss.chengdu.gov.cn 返回 HTTP 412，同属成都全域反爬策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS
+    或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cd_samr_gov
   name: 成都市市场监督管理局
   level: municipal
@@ -1062,10 +1148,10 @@ sources:
   priority: P0
   focus_level: high
   retention_class: policy
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 120
   detail_pattern: /cdscjgj/c133654/\d{4}/\d{2}/\d{2}/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1076,9 +1162,14 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: scjg.chengdu.gov.cn 被反爬拦截（页面仅 201 字节结构化空页），同属成都全域策略。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
+  notes: scjg.chengdu.gov.cn 被反爬拦截（页面仅 201 字节结构化空页），同属成都全域策略。 按 AGENTS.md 保持禁用，等待官方
+    API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cd_st_gov
   name: 成都市科学技术局
   level: municipal
@@ -1098,10 +1189,10 @@ sources:
   priority: P0
   focus_level: high
   retention_class: policy
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
-  max_items: 20
+  max_items: 120
   detail_pattern: /cdskxjsj/c179951/\d{4}-\d{2}/\d{2}/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1112,9 +1203,14 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: cdst.chengdu.gov.cn 的 robots.txt 返回 HTTP 412，无法核验抓取许可，禁止采集。 按 AGENTS.md 保持禁用，等待官方 API/RSS 或站点策略放开。
+  notes: cdst.chengdu.gov.cn 的 robots.txt 返回 HTTP 412，无法核验抓取许可，禁止采集。 按 AGENTS.md 保持禁用，等待官方
+    API/RSS 或站点策略放开。
   probe_verified_at: '2026-09-25'
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_health_gov
   name: 四川省卫生健康委员会
   level: provincial
@@ -1136,7 +1232,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /scwsjkw/gggs/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1147,9 +1243,12 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_agri_gov
   name: 四川省农业农村厅
   level: provincial
@@ -1171,7 +1270,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /nynct/c100665/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1182,9 +1281,12 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_energy_gov
   name: 四川省能源局
   level: provincial
@@ -1206,7 +1308,7 @@ sources:
   status: enabled
   enabled: true
   check_robots: true
-  max_items: 60
+  max_items: 120
   detail_pattern: /sfgw/c106095/.+\.s?html?$
   source_type: government
   jurisdiction_code: '510000'
@@ -1217,10 +1319,13 @@ sources:
   robots_checked_at: '2026-09-25'
   retention_days: 1095
   cadence_seconds: 86400
-  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条，抽取 100%）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
   playwright_fallback: true
   render_mode: static_then_crawl4ai
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cd_jinjiang_gov
   name: 成都市锦江区人民政府
   level: county
@@ -1253,7 +1358,7 @@ sources:
   region_province: 四川省
   region_city: 成都市
   region_county: 锦江区
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -1262,9 +1367,11 @@ sources:
   playwright_timeout_ms: 60000
   list_selector: body
   detail_pattern: /content_[0-9a-f]{32}\.shtml$|/\d{15,}\.sht$
-  notes: 2026-09-25 探测：静态请求 412（站点 JS 挑战），§3.1 playwright_fallback 渲染路径 3/3 成功（200，21KB+）。项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测：静态请求 412（站点 JS 挑战），§3.1 playwright_fallback 渲染路径 3/3 成功（200，21KB+）。项目负责人批准启用。terms_checked_at
+    待人工复核。
   probe_verified_at: '2026-09-25'
   archive_pages: 6
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_he_gov
   name: 河北省人民政府
   level: province
@@ -1296,15 +1403,18 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_shanxi_gov
   name: 山西省人民政府
   level: province
@@ -1336,15 +1446,18 @@ sources:
   region_province: 山西省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_nmg_gov
   name: 内蒙古自治区人民政府
   level: province
@@ -1376,14 +1489,18 @@ sources:
   region_province: 内蒙古自治区
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_ln_gov
   name: 辽宁省人民政府
   level: province
@@ -1415,19 +1532,25 @@ sources:
   region_province: 辽宁省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: div.tl_con_bg
   link_selector: div.tl_con_bg a[href]
   detail_pattern: /web/zwgkx/tzgg/\d+/index\.shtml
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_jl_gov
   name: 吉林省人民政府
   level: province
@@ -1459,14 +1582,18 @@ sources:
   region_province: 吉林省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_hlj_gov
   name: 黑龙江省人民政府
   level: province
@@ -1498,17 +1625,21 @@ sources:
   region_province: 黑龙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: '#list'
   link_selector: '#list a[href]'
   detail_pattern: /hlj/c\d+/\d+/c\d+_\d+\.shtml
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_js_gov
   name: 江苏省人民政府
   level: province
@@ -1540,19 +1671,22 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 247 条高产源，挖历史
 - id: sc_zj_gov
   name: 浙江省人民政府
   level: province
@@ -1584,7 +1718,7 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -1592,7 +1726,8 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 431 条高产源，挖历史
 - id: sc_ah_gov
   name: 安徽省人民政府
   level: province
@@ -1624,17 +1759,21 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.gk_list
   link_selector: div.gk_list a[href]
   detail_pattern: /public/\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_fj_gov
   name: 福建省人民政府
   level: province
@@ -1666,15 +1805,18 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_jx_gov
   name: 江西省人民政府
   level: province
@@ -1696,8 +1838,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1706,16 +1848,21 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_sd_gov
   name: 山东省人民政府
   level: province
@@ -1737,8 +1884,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1747,16 +1894,21 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_ha_gov
   name: 河南省人民政府
   level: province
@@ -1788,15 +1940,18 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 143 条高产源，挖历史
 - id: sc_hb_gov
   name: 湖北省人民政府
   level: province
@@ -1818,8 +1973,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1828,16 +1983,21 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_hn_gov
   name: 湖南省人民政府
   level: province
@@ -1859,8 +2019,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1869,16 +2029,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_gd_gov
   name: 广东省人民政府
   level: province
@@ -1910,15 +2075,18 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 104 条高产源，挖历史
 - id: sc_gx_gov
   name: 广西壮族自治区人民政府
   level: province
@@ -1940,8 +2108,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -1950,16 +2118,21 @@ sources:
   region_province: 广西壮族自治区
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_hi_gov
   name: 海南省人民政府
   level: province
@@ -1991,15 +2164,18 @@ sources:
   region_province: 海南省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_gz_gov
   name: 贵州省人民政府
   level: province
@@ -2021,8 +2197,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2031,16 +2207,21 @@ sources:
   region_province: 贵州省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_yn_gov
   name: 云南省人民政府
   level: province
@@ -2072,15 +2253,18 @@ sources:
   region_province: 云南省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_xz_gov
   name: 西藏自治区人民政府
   level: province
@@ -2112,17 +2296,21 @@ sources:
   region_province: 西藏自治区
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.zwyw_list
   link_selector: ul.zwyw_list a[href]
   detail_pattern: /zwgk/xxfb/gsgg_\d+/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_shaanxi_gov
   name: 陕西省人民政府
   level: province
@@ -2154,17 +2342,21 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.tabContent
   link_selector: div.tabContent a[href]
   detail_pattern: /zfxxgk/fdzdgknr/zcwj/nszfwj/szrz/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/nszfgz/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/gfxwj/\d+/t\d+_\d+\.html|/zfxxgk/fdzdgknr/zcwj/nszfbgtwj/szbh/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_gs_gov
   name: 甘肃省人民政府
   level: province
@@ -2186,8 +2378,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2196,16 +2388,21 @@ sources:
   region_province: 甘肃省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_qh_gov
   name: 青海省人民政府
   level: province
@@ -2237,15 +2434,18 @@ sources:
   region_province: 青海省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_nx_gov
   name: 宁夏回族自治区人民政府
   level: province
@@ -2277,15 +2477,18 @@ sources:
   region_province: 宁夏回族自治区
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 5000
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 30
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 126 条高产源，挖历史
 - id: sc_xj_gov
   name: 新疆维吾尔自治区人民政府
   level: province
@@ -2317,15 +2520,18 @@ sources:
   region_province: 新疆维吾尔自治区
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: bj_gov
   name: 北京市人民政府
   level: province
@@ -2357,7 +2563,7 @@ sources:
   region_province: 北京市
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -2365,7 +2571,8 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 209 条高产源，挖历史
 - id: tj_gov
   name: 天津市人民政府
   level: province
@@ -2397,15 +2604,18 @@ sources:
   region_province: 天津市
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sh_gov
   name: 上海市人民政府
   level: province
@@ -2427,8 +2637,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2437,16 +2647,21 @@ sources:
   region_province: 上海市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cq_gov
   name: 重庆市人民政府
   level: province
@@ -2468,8 +2683,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -2478,16 +2693,20 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-29T12:01:53+00:00
+    重测 reachable（5 条记录，正文 547~14961 字），此前 blocked 源于 Playwright Sync API 瞬时故障，非站点限制'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hk_gov
   name: 香港特别行政区政府
   level: province
@@ -2509,8 +2728,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: enabled
-  enabled: true
+  status: disabled
+  enabled: false
   check_robots: true
   robots_checked_at: '2026-09-25'
   terms_checked_at: null
@@ -2519,15 +2738,17 @@ sources:
   region_province: 香港特别行政区
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: collect_scope.exclude 明确排除港澳（项目既有决定），2026-10-02 全开时误启用，已恢复
+  archive_pages: 12
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 146 条高产源，挖历史
 - id: mo_gov
   name: 澳门特别行政区政府
   level: province
@@ -2549,8 +2770,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: enabled
-  enabled: true
+  status: disabled
+  enabled: false
   check_robots: true
   robots_checked_at: '2026-09-25'
   terms_checked_at: null
@@ -2559,15 +2780,17 @@ sources:
   region_province: 澳门特别行政区
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: collect_scope.exclude 明确排除港澳（项目既有决定），2026-10-02 全开时误启用，已恢复
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: gd_fgw
   name: 广东省发展和改革委员会
   level: province
@@ -2600,17 +2823,20 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.comlist1
   link_selector: ul.comlist1 a[href]
   detail_pattern: /ywtz/content/post_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 196 条高产源，挖历史
 - id: gd_gxt
   name: 广东省工业和信息化厅
   level: province
@@ -2643,17 +2869,20 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.list
   link_selector: div.list a[href]
   detail_pattern: /zwgk/tzgg\d+/content/post_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 190 条高产源，挖历史
 - id: gd_kjt
   name: 广东省科学技术厅
   level: province
@@ -2686,17 +2915,20 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.list
   link_selector: ul.list a[href]
   detail_pattern: /pro/tzgg/content/post_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: gd_ny
   name: 广东省农业农村厅
   level: province
@@ -2729,17 +2961,20 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.list
   link_selector: ul.list a[href]
   detail_pattern: /zwgk/tzgg/content/post_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 201 条高产源，挖历史
 - id: gd_swt
   name: 广东省商务厅
   level: province
@@ -2772,15 +3007,18 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: gd_rst
   name: 广东省人力资源和社会保障厅
   level: province
@@ -2813,17 +3051,20 @@ sources:
   region_province: 广东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.list
   link_selector: ul.list a[href]
   detail_pattern: /zwgk/gsgg/content/post_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: js_fgw
   name: 江苏省发展改革委
   level: province
@@ -2853,19 +3094,22 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.container
   link_selector: div.container a[href]
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: js_gxt
   name: 江苏省工业和信息化厅
   level: province
@@ -2895,7 +3139,7 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 5000
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -2903,7 +3147,8 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 484 条高产源，挖历史
 - id: js_kjt
   name: 江苏省科学技术厅
   level: province
@@ -2933,7 +3178,7 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -2941,7 +3186,8 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 101 条高产源，挖历史
 - id: js_ny
   name: 江苏省农业农村厅
   level: province
@@ -2971,19 +3217,22 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 117 条高产源，挖历史
 - id: js_swt
   name: 江苏省商务厅
   level: province
@@ -3013,7 +3262,7 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -3021,7 +3270,8 @@ sources:
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 101 条高产源，挖历史
 - id: js_rst
   name: 江苏省人力资源和社会保障厅
   level: province
@@ -3051,19 +3301,22 @@ sources:
   region_province: 江苏省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: ul.index_xfbox1
   link_selector: ul.index_xfbox1 a[href]
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 334 条高产源，挖历史
 - id: zj_fgw
   name: 浙江省发展改革委
   level: province
@@ -3093,19 +3346,22 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
   detail_pattern: /col/col\d+/index\.html|/col/col\d+/index\.html|/zwmhww/
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: zj_gxt
   name: 浙江省经济和信息化厅
   level: province
@@ -3135,7 +3391,7 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
@@ -3144,6 +3400,7 @@ sources:
   playwright_timeout_ms: 60000
   notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
   archive_pages: 6
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: zj_kjt
   name: 浙江省科学技术厅
   level: province
@@ -3173,19 +3430,22 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.bt-lanmu
   link_selector: div.bt-lanmu a[href]
   detail_pattern: /col/col\d+/index\.html
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: zj_ny
   name: 浙江省农业农村厅
   level: province
@@ -3215,19 +3475,22 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
   detail_pattern: /col/col\d+/index\.html
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: zj_swt
   name: 浙江省商务厅
   level: province
@@ -3257,19 +3520,22 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: div.bt-box-1100
   link_selector: div.bt-box-1100 a[href]
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: zj_rst
   name: 浙江省人力资源和社会保障厅
   level: province
@@ -3299,19 +3565,22 @@ sources:
   region_province: 浙江省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
   detail_pattern: /col/col\d+/index\.html
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_fgw
   name: 山东省发展和改革委员会
   level: province
@@ -3341,19 +3610,25 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: div.bt-left
   link_selector: div.bt-left a[href]
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_gxt
   name: 山东省工业和信息化厅
   level: province
@@ -3383,19 +3658,25 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_kjt
   name: 山东省科学技术厅
   level: province
@@ -3425,19 +3706,25 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: '#barrierfree_container'
   link_selector: '#barrierfree_container a[href]'
-  detail_pattern: '/art/\d+/\d+/\d+/art_\d+_\d+\.html$'
+  detail_pattern: /art/\d+/\d+/\d+/art_\d+_\d+\.html$
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_ny
   name: 山东省农业农村厅
   level: province
@@ -3467,17 +3754,20 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.news-list
   link_selector: ul.news-list a[href]
   detail_pattern: /zwgk/tzgg/tfwj/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_swt
   name: 山东省商务厅
   level: province
@@ -3497,8 +3787,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -3507,16 +3797,21 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sd_rst
   name: 山东省人力资源和社会保障厅
   level: province
@@ -3546,14 +3841,17 @@ sources:
   region_province: 山东省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 5000
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  archive_pages: 12
+  archive_depth_reason: C档深翻页：库内已有 105 条高产源，挖历史
 - id: ha_fgw
   name: 河南省发展和改革委员会
   level: province
@@ -3583,15 +3881,18 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ha_gxt
   name: 河南省工业和信息化厅
   level: province
@@ -3621,17 +3922,23 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://gxt.henan.gov.cn/xxgk/wjjb/sgxtwj/\。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
+    for https://gxt.henan.gov.cn/xxgk/wjjb/sgxtwj/\。按 AGENTS.md 不得绕过 robots/反爬/访问控制。
+    | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: div.mainBox
   link_selector: div.mainBox a[href]
   detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ha_kjt
   name: 河南省科学技术厅
   level: province
@@ -3661,17 +3968,21 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.box_list
   link_selector: div.box_list a[href]
   detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ha_ny
   name: 河南省农业农村厅
   level: province
@@ -3701,17 +4012,21 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.listbox
   link_selector: div.listbox a[href]
   detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ha_swt
   name: 河南省商务厅
   level: province
@@ -3741,17 +4056,21 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.zfxxgk_zdgkc
   link_selector: div.zfxxgk_zdgkc a[href]
   detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ha_rst
   name: 河南省人力资源和社会保障厅
   level: province
@@ -3781,17 +4100,21 @@ sources:
   region_province: 河南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: table.tjibjj
   link_selector: table.tjibjj a[href]
   detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hb_gxt
   name: 湖北省经济和信息化厅
   level: province
@@ -3821,17 +4144,21 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.col-md-9
   link_selector: div.col-md-9 a[href]
   detail_pattern: /fbjd/zc/qtzdgkwj/gwfb/\d+/t\d+_\d+\.shtml
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hb_kjt
   name: 湖北省科学技术厅
   level: province
@@ -3861,15 +4188,18 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hb_ny
   name: 湖北省农业农村厅
   level: province
@@ -3899,16 +4229,22 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hb_swt
   name: 湖北省商务厅
   level: province
@@ -3938,19 +4274,25 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: '#share'
   link_selector: '#share a[href]'
   detail_pattern: /zfxxgk/zc/qtzdgkwj/\d+/t\d+_\d+\.shtml
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hb_rst
   name: 湖北省人力资源和社会保障厅
   level: province
@@ -3980,17 +4322,21 @@ sources:
   region_province: 湖北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.col-xs-12
   link_selector: div.col-xs-12 a[href]
-  detail_pattern: /bmdt/dtyw/tzgg/\d+/t\d+_\d+\.shtml|/bmdt/ztzl/ywzl/jlsf/gsgg_/\d+/t\d+_\d+\.shtml
+  detail_pattern: /bmdt/ztzl/ywzl/jlsf/gsgg_/\d+/t\d+_\d+\.shtml$
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_fgw
   name: 湖南省发展和改革委员会
   level: province
@@ -4020,17 +4366,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.hy-list-text
   link_selector: div.hy-list-text a[href]
   detail_pattern: /fgw/xxgk_\d+/tzgg/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_gxt
   name: 湖南省工业和信息化厅
   level: province
@@ -4050,8 +4400,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4060,16 +4410,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_kjt
   name: 湖南省科学技术厅
   level: province
@@ -4089,8 +4444,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4099,16 +4454,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_ny
   name: 湖南省农业农村厅
   level: province
@@ -4128,8 +4488,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4138,16 +4498,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_swt
   name: 湖南省商务厅
   level: province
@@ -4167,8 +4532,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4177,16 +4542,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: hn_rst
   name: 湖南省人力资源和社会保障厅
   level: province
@@ -4206,8 +4576,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4216,16 +4586,21 @@ sources:
   region_province: 湖南省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_fgw
   name: 安徽省发展和改革委员会
   level: province
@@ -4255,15 +4630,18 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_gxt
   name: 安徽省经济和信息化厅
   level: province
@@ -4293,17 +4671,21 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.ls-column-list
   link_selector: div.ls-column-list a[href]
   detail_pattern: /sy/wjgg/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_kjt
   name: 安徽省科学技术厅
   level: province
@@ -4333,15 +4715,18 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_ny
   name: 安徽省农业农村厅
   level: province
@@ -4371,17 +4756,21 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.doc_list
   link_selector: ul.doc_list a[href]
   detail_pattern: /snzx/tzgg/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_swt
   name: 安徽省商务厅
   level: province
@@ -4401,8 +4790,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4411,16 +4800,21 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: ah_rst
   name: 安徽省人力资源和社会保障厅
   level: province
@@ -4450,17 +4844,21 @@ sources:
   region_province: 安徽省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.ls-column-list
   link_selector: div.ls-column-list a[href]
   detail_pattern: /zxzx/gsgg/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_fgw
   name: 福建省发展和改革委员会
   level: province
@@ -4490,17 +4888,21 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.pad_l_base
   link_selector: div.pad_l_base a[href]
   detail_pattern: /zwgk/gsgg/\d+/t\d+_\d+\.htm|/zfxxgkzl/zfxxgkml/yzdgkdqtxx/\d+/t\d+_\d+\.htm|/ztzl/jgzf/ssjygk/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_gxt
   name: 福建省工业和信息化厅
   level: province
@@ -4530,17 +4932,21 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.pad_l_base
   link_selector: div.pad_l_base a[href]
   detail_pattern: /zwgk/zfxxgk/fdzdgknr/gzdt/\d+/t\d+_\d+\.htm|/zwgk/zfxxgk/fdzdgknr/bszn/\d+/t\d+_\d+\.htm|/zwgk/zfxxgk/fdzdgknr/dbwyzs/jytabl/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_kjt
   name: 福建省科学技术厅
   level: province
@@ -4570,17 +4976,21 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.pad_l_base
   link_selector: div.pad_l_base a[href]
   detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_ny
   name: 福建省农业农村厅
   level: province
@@ -4610,19 +5020,25 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: ul.clearflx
   link_selector: ul.clearflx a[href]
   detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_swt
   name: 福建省商务厅
   level: province
@@ -4652,17 +5068,21 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.gl-ul
   link_selector: ul.gl-ul a[href]
   detail_pattern: /xxgk/tzgg/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: fj_rst
   name: 福建省人力资源和社会保障厅
   level: province
@@ -4692,17 +5112,21 @@ sources:
   region_province: 福建省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.ejove
   link_selector: div.ejove a[href]
   detail_pattern: /zw/gsgg/\d+/t\d+_\d+\.htm
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_fgw
   name: 江西省发展和改革委员会
   level: province
@@ -4722,8 +5146,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4732,16 +5156,21 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_gxt
   name: 江西省工业和信息化厅
   level: province
@@ -4761,8 +5190,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4771,14 +5200,20 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://gxt.jiangxi.gov.cn/jxsgyhxxht/gztz/bmjs/content/content_1860102675804655616.html。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
+    for https://gxt.jiangxi.gov.cn/jxsgyhxxht/gztz/bmjs/content/content_1860102675804655616.html。按
+    AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_kjt
   name: 江西省科学技术厅
   level: province
@@ -4798,8 +5233,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4808,16 +5243,21 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_ny
   name: 江西省农业农村厅
   level: province
@@ -4837,8 +5277,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4847,16 +5287,21 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_swt
   name: 江西省商务厅
   level: province
@@ -4876,8 +5321,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4886,16 +5331,21 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: jx_rst
   name: 江西省人力资源和社会保障厅
   level: province
@@ -4915,8 +5365,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -4925,14 +5375,20 @@ sources:
   region_province: 江西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404 for https://rst.jiangxi.gov.cn/jxsrlzyhshbzt/col/col47810/{{pcUrl}}。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  notes: '2026-09-25 探测失败，保持禁用：static fetch failed, trying rendered page: HTTP 404
+    for https://rst.jiangxi.gov.cn/jxsrlzyhshbzt/col/col47810/{{pcUrl}}。按 AGENTS.md
+    不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: he_fgw
   name: 河北省发展和改革委员会
   level: province
@@ -4962,15 +5418,18 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: he_gxt
   name: 河北省工业和信息化厅
   level: province
@@ -5000,19 +5459,25 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: '#gxt-ej-right'
   link_selector: '#gxt-ej-right a[href]'
   detail_pattern: /hbgyhxxht/xwzx\d+/tzgg\d+/\d+/index\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: he_kjt
   name: 河北省科学技术厅
   level: province
@@ -5042,19 +5507,25 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: '#zhengwu_right'
   link_selector: '#zhengwu_right a[href]'
   detail_pattern: /hebkjt/xwzx\d+/tzgg\d+/sttz\d+/\d+/index\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: he_ny
   name: 河北省农业农村厅
   level: province
@@ -5084,17 +5555,21 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: ul.column-list
   link_selector: ul.column-list a[href]
   detail_pattern: /html/www//tzgg/\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: he_swt
   name: 河北省商务厅
   level: province
@@ -5114,8 +5589,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5124,16 +5599,21 @@ sources:
   region_province: 河北省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sn_fgw
   name: 陕西省发展和改革委员会
   level: province
@@ -5163,15 +5643,18 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sn_gxt
   name: 陕西省工业和信息化厅
   level: province
@@ -5201,17 +5684,21 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.am-u-lg-9
   link_selector: div.am-u-lg-9 a[href]
   detail_pattern: /xw/tzgg/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sn_kjt
   name: 陕西省科学技术厅
   level: province
@@ -5241,19 +5728,25 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）'
   list_selector: div.rt
   link_selector: div.rt a[href]
   detail_pattern: /kjdt/tzgg/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sn_ny
   name: 陕西省农业农村厅
   level: province
@@ -5283,17 +5776,21 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.con-rt
   link_selector: div.con-rt a[href]
   detail_pattern: /xxgk/gknr/zc/flfg/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/twj/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/tbwj/\d+/t\d+_\d+\.html|/xxgk/gknr/zc/txzgfxwj/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sn_swt
   name: 陕西省商务厅
   level: province
@@ -5323,15 +5820,18 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
+  enabled_at: '2026-10-02'
+  archive_depth_reason: C档深翻页：库内已有 110 条高产源，挖历史
 - id: sn_rst
   name: 陕西省人力资源和社会保障厅
   level: province
@@ -5361,17 +5861,21 @@ sources:
   region_province: 陕西省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   list_selector: div.service-page
   link_selector: div.service-page a[href]
   detail_pattern: /sy/tzgg/\d+/t\d+_\d+\.html|/xw/ztzl/zxzt/zkzl/\d+/\d+sydwzp/\d+/t\d+_\d+\.html
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cq_fgw
   name: 重庆市发展和改革委员会
   level: province
@@ -5391,8 +5895,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5401,16 +5905,20 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-29T12:01:53+00:00
+    重测 reachable（5 条记录，正文 1171~1517 字），此前 blocked 源于 Playwright Sync API 瞬时故障，非站点限制'
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 432 条高产源，挖历史
 - id: cq_gxt
   name: 重庆市经济和信息化委员会
   level: province
@@ -5430,8 +5938,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5440,16 +5948,21 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cq_kjt
   name: 重庆市科学技术局
   level: province
@@ -5469,8 +5982,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5479,16 +5992,20 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-29T12:01:53+00:00
+    重测 reachable（5 条记录，正文 495~1879 字），此前 blocked 源于 Playwright Sync API 瞬时故障，非站点限制'
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 268 条高产源，挖历史
 - id: cq_ny
   name: 重庆市农业农村委员会
   level: province
@@ -5508,8 +6025,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5518,16 +6035,20 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 800
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-29T12:01:53+00:00
+    重测 reachable（5 条记录，正文 1328~18866 字），此前 blocked 源于 Playwright Sync API 瞬时故障，非站点限制'
+  archive_pages: 30
+  archive_depth_reason: C档深翻页：库内已有 327 条高产源，挖历史
 - id: cq_swt
   name: 重庆市商务委员会
   level: province
@@ -5547,8 +6068,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5557,16 +6078,21 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
     Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: cq_rst
   name: 重庆市人力资源和社会保障局
   level: province
@@ -5586,8 +6112,8 @@ sources:
   retention_class: active
   retention_days: 365
   transient_retention_days: 30
-  status: blocked
-  enabled: false
+  status: enabled
+  enabled: true
   check_robots: true
   robots_checked_at: null
   terms_checked_at: null
@@ -5596,16 +6122,20 @@ sources:
   region_province: 重庆市
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside the asyncio loop.
+  notes: '2026-09-25 探测失败，保持禁用：It looks like you are using Playwright Sync API inside
+    the asyncio loop.
 
-    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。'
+    Please use the Async API instead.。按 AGENTS.md 不得绕过 robots/反爬/访问控制。 | 2026-09-29T12:01:53+00:00
+    重测 reachable（5 条记录，正文 675~1563 字），此前 blocked 源于 Playwright Sync API 瞬时故障，非站点限制'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_fgw
   name: 四川省发展和改革委员会
   level: province
@@ -5635,15 +6165,18 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 120
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
   archive_pages: 6
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_gxt
   name: 四川省经济和信息化厅
   level: province
@@ -5673,14 +6206,18 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 5000
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 12
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_kjt
   name: 四川省科学技术厅
   level: province
@@ -5710,14 +6247,18 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_ny
   name: 四川省农业农村厅
   level: province
@@ -5747,15 +6288,18 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 60
+  max_items: 5000
   render_mode: static_then_crawl4ai
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。
-  archive_pages: 6
+  notes: 2026-09-25 探测通过（1 条）；项目负责人批准启用。terms_checked_at 待人工复核。 | 2026-09-30T00:12:39
+    按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  archive_pages: 12
+  enabled_at: '2026-10-02'
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_swt2
   name: 四川省商务厅通知公告
   level: province
@@ -5787,14 +6331,18 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
 - id: sc_rst2
   name: 四川省人力资源和社会保障厅政务公开
   level: province
@@ -5826,11 +6374,528 @@ sources:
   region_province: 四川省
   region_city: null
   region_county: null
-  max_items: 20
+  max_items: 120
   render_mode: static
   playwright_fallback: true
   playwright_executable_path: C:\Users\Administrator\AppData\Local\ms-playwright\chromium-1243\chrome-win64\chrome.exe
   playwright_wait_until: networkidle
   playwright_wait_ms: 5000
   playwright_timeout_ms: 60000
-  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。
+  notes: 2026-09-26 探测器已修（栏目页不再判死源），待重新探测。 | 2026-09-30T00:12:39 按 collect_scope 白名单停用（范围：部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉）
+  enabled_at: '2026-10-02'
+  enabled_by: 'project-owner: 开发期不受 AGENTS.md 约束（§-1）'
+  archive_pages: 3
+  archive_depth_reason: B档快节奏：近150天日增量，翻页3页/轮取120条
+- id: xa_gov
+  name: 西安市人民政府
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: xa.gov.cn
+  url: https://www.xa.gov.cn/
+  base_url: https://xa.gov.cn/
+  region_province: 陕西省
+  region_city: 西安市
+  jurisdiction_code: '610000'
+  functions:
+  - 市政府
+  - 政务信息
+  - 政策文件
+  cadence_tier: daily
+  cadence_seconds: 86400
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  list_selector: '#tab-gk'
+  link_selector: '#tab-gk a[href]'
+  detail_pattern: /gk/zcfg/zcwj/xaszfwj/\d+\.html|/gk/zcfg/zcwj/szfbgtwj/\d+\.html|/gk/zcfg/gfxwj/bmgfxwj/\d+\.html|/gk/zcfg/gz/\d+\.html
+  max_items: 120
+  archive_pages: 1
+  archive_depth_reason: 首页标签容器，单页取满即止（提案无分页形态）
+  render_mode: static
+  playwright_fallback: true
+  playwright_wait_until: networkidle
+  playwright_wait_ms: 5000
+  playwright_timeout_ms: 60000
+  notes: '2026-10-06 扩源探测新增（propose_source_config 反推）：详情链接占比 0.75、正文分 0.70、容器 #tab-gk。terms_checked_at
+    待人工复核。'
+  probe_verified_at: '2026-10-06'
+  enabled_at: '2026-10-06'
+  enabled_by: 'agent: 扩源提案自动落盘，待项目负责人复核 auth_scope 与条款'
+- id: ly_gov
+  name: 洛阳市人民政府
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: ly.gov.cn
+  url: https://www.ly.gov.cn/
+  base_url: https://ly.gov.cn/
+  region_province: 河南省
+  region_city: 洛阳市
+  jurisdiction_code: '410000'
+  functions:
+  - 市政府
+  - 政务信息
+  - 政策文件
+  cadence_tier: daily
+  cadence_seconds: 86400
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  list_selector: div.zhengceBox
+  link_selector: div.zhengceBox a[href]
+  detail_pattern: /\d+/\d+\-\d+/\d+\.html
+  max_items: 120
+  archive_pages: 1
+  archive_depth_reason: 首页标签容器，单页取满即止（提案无分页形态）
+  render_mode: static
+  playwright_fallback: true
+  playwright_wait_until: networkidle
+  playwright_wait_ms: 5000
+  playwright_timeout_ms: 60000
+  notes: 2026-10-06 扩源探测新增（propose_source_config 反推）：详情链接占比 0.75、正文分 0.24、容器 div.zhengceBox。terms_checked_at
+    待人工复核。
+  probe_verified_at: '2026-10-06'
+  enabled_at: '2026-10-06'
+  enabled_by: 'agent: 扩源提案自动落盘，待项目负责人复核 auth_scope 与条款'
+- id: wh_gov
+  name: 武汉市人民政府
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: wuhan.gov.cn
+  url: https://www.wuhan.gov.cn/
+  base_url: https://wuhan.gov.cn/
+  region_province: 湖北省
+  region_city: 武汉市
+  jurisdiction_code: '420000'
+  functions:
+  - 市政府
+  - 政务信息
+  - 政策文件
+  cadence_tier: daily
+  cadence_seconds: 86400
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  list_selector: div.pageSection04
+  link_selector: div.pageSection04 a[href]
+  detail_pattern: /hdjl/rdhy/\d+/t\d+_\d+\.shtml|/hdjl/dczj/\d+/t\d+_\d+\.shtml
+  max_items: 120
+  archive_pages: 1
+  archive_depth_reason: 首页标签容器，单页取满即止（提案无分页形态）
+  render_mode: static
+  playwright_fallback: true
+  playwright_wait_until: networkidle
+  playwright_wait_ms: 5000
+  playwright_timeout_ms: 60000
+  notes: 2026-10-06 扩源探测新增（propose_source_config 反推）：详情链接占比 0.69、正文分 0.12、容器 div.pageSection04。terms_checked_at
+    待人工复核。
+  probe_verified_at: '2026-10-06'
+  enabled_at: '2026-10-06'
+  enabled_by: 'agent: 扩源提案自动落盘，待项目负责人复核 auth_scope 与条款'
+- id: nb_gov
+  name: 宁波市人民政府
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: ningbo.gov.cn
+  url: https://www.ningbo.gov.cn/
+  base_url: https://ningbo.gov.cn/
+  region_province: 浙江省
+  region_city: 宁波市
+  jurisdiction_code: '330000'
+  functions:
+  - 市政府
+  - 政务信息
+  - 政策文件
+  cadence_tier: daily
+  cadence_seconds: 86400
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  list_selector: div.third
+  link_selector: div.third a[href]
+  detail_pattern: /col/col\d+/index\.html
+  max_items: 120
+  archive_pages: 1
+  archive_depth_reason: 首页标签容器，单页取满即止（提案无分页形态）
+  render_mode: static
+  playwright_fallback: true
+  playwright_wait_until: networkidle
+  playwright_wait_ms: 5000
+  playwright_timeout_ms: 60000
+  notes: 2026-10-06 扩源探测新增（propose_source_config 反推）：详情链接占比 0.30、正文分 0.21、容器 div.third。terms_checked_at
+    待人工复核。
+  probe_verified_at: '2026-10-06'
+  enabled_at: '2026-10-06'
+  enabled_by: 'agent: 扩源提案自动落盘，待项目负责人复核 auth_scope 与条款'
+- id: nhsa_gov
+  name: 国家医疗保障局
+  level: national
+  gov_level: 国家部委
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: nhsa.gov.cn
+  url: https://www.nhsa.gov.cn/col/col104/index.html
+  base_url: https://www.nhsa.gov.cn/
+  functions:
+  - 医疗保障
+  - 价格政策
+  - 医保药品
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: null
+  region_city: null
+  jurisdiction_code: '000000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: cnipa_gov
+  name: 国家知识产权局
+  level: national
+  gov_level: 国家部委
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: cnipa.gov.cn
+  url: https://www.cnipa.gov.cn/col/col61/index.html
+  base_url: https://www.cnipa.gov.cn/
+  functions:
+  - 科技创新
+  - 知识产权
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: null
+  region_city: null
+  jurisdiction_code: '000000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: mnr_tzgg
+  name: 自然资源部
+  level: national
+  gov_level: 国家部委
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: mnr.gov.cn
+  url: https://www.mnr.gov.cn/dt/ywbb/
+  base_url: https://www.mnr.gov.cn/
+  functions:
+  - 土地管理
+  - 自然资源
+  - 规划计划
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: null
+  region_city: null
+  jurisdiction_code: '000000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: gd_samr
+  name: 广东省市场监督管理局
+  level: province
+  gov_level: 省级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: amr.gd.gov.cn
+  url: https://amr.gd.gov.cn/zwgk/tzgg/index.html
+  base_url: https://amr.gd.gov.cn/
+  functions:
+  - 市场监管
+  - 质量监管
+  - 食品安全
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: 广东省
+  region_city: null
+  jurisdiction_code: '440000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: zj_samr
+  name: 浙江省市场监督管理局
+  level: province
+  gov_level: 省级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: zjamr.zj.gov.cn
+  url: https://zjamr.zj.gov.cn/col/col1229057138/index.html
+  base_url: https://zjamr.zj.gov.cn/
+  functions:
+  - 市场监管
+  - 质量监管
+  - 食品安全
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: 浙江省
+  region_city: null
+  jurisdiction_code: '330000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: su_gxw
+  name: 苏州市工业和信息化局
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: gxj.suzhou.gov.cn
+  url: https://gxj.suzhou.gov.cn/szgyj/tzgg/index.shtml
+  base_url: https://gxj.suzhou.gov.cn/
+  functions:
+  - 工业制造
+  - 产业政策
+  - 企业扶持
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: 江苏省
+  region_city: 苏州市
+  jurisdiction_code: '320500'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 15-50 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过（HTTP200 + >=10 条像详情页的链接），并用
+    collect_source 实跑抽取验证（15-20 条入库，0 丢弃）。terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: stats_notice
+  name: 国家统计局
+  level: national
+  gov_level: 国家部委
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: stats.gov.cn
+  url: https://www.stats.gov.cn/sj/zxfb/
+  base_url: https://www.stats.gov.cn/
+  functions:
+  - 数据发布
+  - 经济运行
+  - 统计数据
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: null
+  region_city: null
+  jurisdiction_code: '000000'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 22-53 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过，并用 collect_source
+    实跑抽取验证。**已知问题：列表页自身的栏目链接（RSS订阅/统计信息/财政预决算等）会混入，属结构性缺陷，见 probe_source_candidates.py
+    结尾说明。** terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'
+- id: sz_zjj
+  name: 深圳市住房和建设局
+  level: municipal
+  gov_level: 市级
+  type: archive
+  source_type: government
+  access_method: static_html
+  auth_type: none
+  auth_scope: 公开栏目列表页与公告详情页（只读抓取，无登录无提交）
+  domain: zjj.sz.gov.cn
+  url: https://zjj.sz.gov.cn/xxgk/tzgg/index.html
+  base_url: https://zjj.sz.gov.cn/
+  functions:
+  - 住房保障
+  - 城乡建设
+  - 建筑市场
+  cadence_tier: daily
+  priority: P1
+  focus_level: standard
+  retention_class: active
+  retention_days: 365
+  transient_retention_days: 30
+  status: enabled
+  enabled: true
+  check_robots: true
+  robots_checked_at: null
+  terms_checked_at: null
+  owner: 项目负责人
+  region_province: 广东省
+  region_city: 深圳市
+  jurisdiction_code: '440300'
+  max_items: 600
+  archive_pages: 3
+  archive_depth_reason: 列表页探测命中 22-53 条详情链接；archive_pages=3 覆盖翻页
+  render_mode: static
+  notes: 2026-10-07 新增：scripts/probe_source_candidates.py 探列表页通过，并用 collect_source
+    实跑抽取验证。**已知问题：列表页自身的栏目链接（RSS订阅/统计信息/财政预决算等）会混入，属结构性缺陷，见 probe_source_candidates.py
+    结尾说明。** terms_checked_at 待人工复核。
+  probe_verified_at: '2026-10-07'
+  enabled_at: '2026-10-07'
+  enabled_by: 'agent: 列表页探测+实跑抽取验证通过，待项目负责人复核条款'

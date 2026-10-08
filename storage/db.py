@@ -39,6 +39,25 @@ def compute_content_hash(record: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _heat_topic(row: HeatTopic) -> dict[str, Any]:
+    """HeatTopic → API dict。列表和详情共用，避免两份字段抄歪。"""
+    return {
+        "cluster_id": row.id,
+        "report_date": row.report_date,
+        "title": row.title,
+        "category_l1": row.category_l1,
+        "category_l2": row.category_l2,
+        "heat_score": row.heat_score,
+        "source_count": row.source_count,
+        "source_names": list(row.source_names or []),
+        "latest_publish": row.latest_publish,
+        "article_urls": list(row.article_urls or []),
+        "terms": list(row.terms or []),
+        "heat_reason": row.heat_reason,
+        "summary": row.summary,
+    }
+
+
 class Database:
     def __init__(self, path: str = "data/beacon.db") -> None:
         self.path = path
@@ -378,6 +397,55 @@ class Database:
                 state.last_error = (error or "unknown error")[:2000]
                 state.status = "error"
 
+    def mirror_source_result(
+        self,
+        source_id: str,
+        *,
+        status: str,
+        cadence_tier: str,
+        interval_seconds: int,
+        consecutive_failures: int,
+        error: str | None = None,
+        next_due_at: datetime | None = None,
+        now: datetime | None = None,
+    ) -> None:
+        """把**灯塔**的真实采集结果镜像进这张表。
+
+        和 :meth:`mark_source_result` 的区别 —— 那一个自己算退避
+        （``min(86400, 3600 * 2**(失败次数-1))``），灯塔用的是
+        ``lighthouse.BACKOFF_LADDER`` 那套绝对秒数阶梯。两个公式同时写
+        ``next_due_at`` 就等于有两个真相，表现是「表里的下次回访时间和实际
+        调度对不上」，排查时谁也说不清该信谁。
+
+        所以这里**只写调用方给的值，绝不自己推导任何时间**。
+        退避、连续失败次数、下次回访都由灯塔算好后传进来，这张表退化成
+        纯观测镜像 —— 谁都能读，但只有灯塔写。
+
+        2026-10-06 实测踩过：这张表最后一次写入停在 2026-09-28，因为
+        灯塔接管采集后压根没往这儿写。结果是 8 天里 151 个源的状态全是
+        8 天前的快照，看起来像「55 个源在失败、10 天零入库」，而实际当天
+        还入库了 237 条。**指标静默腐烂比指标缺失更危险**，所以灯塔每采完
+        一个源就镜像一次。
+        """
+        current = _as_datetime(now, utcnow()) or utcnow()
+        with self.session() as session:
+            state = session.get(SourceSyncState, source_id)
+            if state is None:
+                state = SourceSyncState(source_id=source_id, cadence_tier=cadence_tier,
+                                        interval_seconds=max(1, int(interval_seconds)))
+                session.add(state)
+            state.cadence_tier = cadence_tier
+            state.interval_seconds = max(1, int(interval_seconds))
+            state.last_attempt_at = current
+            state.consecutive_failures = max(0, int(consecutive_failures))
+            state.status = status
+            state.last_error = (error or None) and str(error)[:2000]
+            if next_due_at is not None:
+                state.next_due_at = _as_datetime(next_due_at, current)
+            if status == "ok":
+                state.last_success_at = current
+                state.last_error = None
+
     def purge_expired(self, now: datetime | None = None) -> dict[str, int]:
         current = _as_datetime(now, utcnow()) or utcnow()
         with self.session() as session:
@@ -467,14 +535,37 @@ class Database:
                 query = query.where(HeatTopic.report_date == report_date)
             query = query.order_by(HeatTopic.heat_score.desc(), HeatTopic.latest_publish.desc()).limit(max(1, min(limit, 200)))
             rows = list(session.scalars(query).all())
-            return [{"cluster_id": row.id, "title": row.title, "category_l1": row.category_l1, "category_l2": row.category_l2, "heat_score": row.heat_score, "source_count": row.source_count, "source_names": list(row.source_names or []), "latest_publish": row.latest_publish, "article_urls": list(row.article_urls or []), "heat_reason": row.heat_reason, "summary": row.summary} for row in rows]
+            return [_heat_topic(row) for row in rows]
+
+    def list_heat_dates(self) -> list[str]:
+        """有话题的报告日期（倒序）—— 前端日期切换只在这些日期里选。
+
+        report_date 里混着 `2026-09` 这种月粒度脏值，所以不能拿它当
+        日历用，只能原样返回让用户挑。
+        """
+        with self.session() as session:
+            return [str(value) for value in session.scalars(select(HeatTopic.report_date).distinct().order_by(HeatTopic.report_date.desc())).all()]
+
+    def heat_trend(self) -> list[dict[str, Any]]:
+        """按 report_date 聚合的趋势（升序）—— 热点页折线图用。
+
+        report_date 混着月粒度脏值，这里原样按字符串聚合不强行补日：
+        日期数据本身稀疏是采集侧的事实，图上如实呈现。
+        """
+        with self.session() as session:
+            rows = session.execute(
+                select(HeatTopic.report_date, func.count(HeatTopic.id), func.coalesce(func.sum(HeatTopic.heat_score), 0.0))
+                .group_by(HeatTopic.report_date)
+                .order_by(HeatTopic.report_date.asc())
+            ).all()
+        return [{"date": date, "count": count, "heat": round(float(heat), 1)} for date, count, heat in rows]
 
     def get_heat_topic(self, cluster_id: str) -> dict[str, Any] | None:
         with self.session() as session:
             row = session.get(HeatTopic, cluster_id)
             if row is None:
                 return None
-            return {"cluster_id": row.id, "title": row.title, "category_l1": row.category_l1, "category_l2": row.category_l2, "heat_score": row.heat_score, "source_count": row.source_count, "source_names": list(row.source_names or []), "latest_publish": row.latest_publish, "article_urls": list(row.article_urls or []), "heat_reason": row.heat_reason, "summary": row.summary}
+            return _heat_topic(row)
 
     # ── 字段抽取留痕 ──
     # record 字段 → topic field_key 的映射表。

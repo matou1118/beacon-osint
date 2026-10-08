@@ -18,6 +18,22 @@ except ImportError:
 # (config/defect_registry.yaml -> collection_yield_rate fixes).
 DEFAULT_RENDER_MODE = "static"
 
+# ``<script type=...>`` 里**不是** JS 的类型：这些块的内容其实是 HTML/XML
+# 数据，BeautifulSoup 按规范当纯文本处理，于是里面的 <a> 对
+# ``select("a[href]")`` 完全不可见。
+#
+# 2026-10-07 实测踩过：政府 CMS（浙大/南京系）的 ``datastore`` 模式把整段
+# 文章列表塞在 ``<script type="text/xml"><datastore>…<![CDATA[<a href=…>…]]>
+# `` 里。nhsa_gov 页面上原始 67 个 ``<a href>``，BS 只认出 20 个，剩下
+# 47 条文章链接全在 script 里 —— 表现为该源永远「0 links found on list page」。
+#
+# 反过来，真 JS 块里偶尔也有 href 字样（模板字符串、跳转代码），所以必须
+# **白名单**而不是「非 JS 就算」。
+_NON_JS_SCRIPT_TYPES = frozenset({
+    "text/xml", "application/xml", "text/html", "application/xhtml+xml",
+    "text/template", "text/x-template",
+})
+
 
 def _html_has_content(html: str) -> bool:
     """页面里到底有没有内容。
@@ -169,7 +185,13 @@ class HtmlListCollector(BaseCollector):
     NON_DOC_URLS = re.compile(
         r"/(?:wza|wzgao|barrier_free|accessibility)/?"
         r"|/(?:copyright|disclaimer|statement)/?"
-        r"|/site(?:map|map)/?$", re.I)
+        r"|/site(?:map|map)/?$"
+        # 机构设置/信息公开指南/领导信息/职能介绍等结构性页面：
+        # 不是公告，是政府组织架构和办事指南，实测 ID=7167 机构设置页
+        # 含 52 个电话号码，ID=7163 信息公开指南含 4 个，全部无用。
+        # 注意：/zcjd/(政策解读)和/bmdt/(部门动态)是合法内容页，不排除。
+        r"|/(?:jgsz|jgzn|znjs|bnjs|ldxx|ldgk|xxgkzn|xxgkzd)/?",
+        re.I)
     # 版权/免责声明/网站声明这类页面。标题形态很固定，风险低：真公告不会以
     # "…官网版权与免责声明"为题。实测 sc_ny 收过一条 2018 年的
     # 「四川省农业农村厅官网版权与免责声明」。
@@ -263,6 +285,21 @@ class HtmlListCollector(BaseCollector):
         return len(value) <= 24 and value.endswith(
             ("厅", "局", "政府", "学院", "中心", "委员会", "委", "办公厅", "办公室"))
 
+    # 电话密度守卫：机构设置/通讯录等页面电话号码密集，不是公告。
+    # 实测 ID=7167 机构设置页 1468 字正文含 52 个电话，ID=1152 三支一扶
+    # 招募公告 34993 字含 305 个电话（真公告但电话占比低）。
+    # 判据：电话号码 ≥15 个 且 电话字符占正文比 ≥8% → 目录页。
+    _PHONE_RE = re.compile(r"0?\d{3,4}[-\s]?\d{7,8}")
+
+    def _is_phone_directory(self, content: str) -> bool:
+        if not content or len(content) < 100:
+            return False
+        phones = self._PHONE_RE.findall(content)
+        if len(phones) < 15:
+            return False
+        phone_chars = sum(len(p) for p in phones)
+        return phone_chars / len(content) >= 0.08
+
     def _navigation_like(self, url: str) -> bool:
         segments = [part for part in urlparse(url).path.lower().split("/") if part]
         if not segments:
@@ -307,10 +344,46 @@ class HtmlListCollector(BaseCollector):
         path = parsed.path.lower()
         if parsed.scheme not in {"http", "https"} or not self._is_allowed_url(url):
             return False
-        if self._navigation_like(url):
-            return False
-        if path in {"", "/"} or path.endswith(("/index.htm", "/index.html")):
-            return False
+        pattern = self.source.get("detail_pattern")
+        pattern_ok = bool(pattern) and bool(re.search(str(pattern), url))
+
+        # 通用启发式（导航段 / 末段 index.*）要放行显式配置的 detail_pattern。
+        #
+        # 为什么：NAVIGATION_SEGMENTS 里有 'index'，而判定是拿路径末段去白名单里
+        # 查——「xxx/index.html」的末段正是 index，于是被判成栏目首页丢掉。可浙江、
+        # 河北、辽宁这类政府 CMS 恰恰把**文章**地址写成 col1229225203/index.html、
+        # 2026092109480258270/index.html。实测 7 个源因此一条链接都取不到（浙江
+        # 科技厅/农业厅/人社厅、河北科技厅/工信厅、辽宁政府），每轮各白烧 300~600
+        # 秒在确认"没链接"，日志里是 no links found on list page。
+        #
+        # 代价是失去一道防栏目页的闸。但那不是损失：这些源同时配了 detail_pattern
+        # 之外的 selector，且下游还有 content_quality / link_flood 门禁兜底。操作员
+        # 显式写下的 pattern 是比通用启发式更强的证据。
+        if not pattern_ok:
+            if self._navigation_like(url):
+                return False
+            if path in {"", "/"} or path.endswith(("/index.htm", "/index.html")):
+                return False
+            # 以 / 结尾的**目录型**链接（没有文件名）也是栏目页。
+            #
+            # 为什么必须单独拦：上面的守卫只认「index.* 结尾」，而政府站的栏目
+            # 地址大量是裸目录 —— 2026-10-07 实测漏进来的就是这些：
+            #   https://www.stats.gov.cn/znwd/          → 标题「RSS订阅」
+            #   https://www.stats.gov.cn/wzgl/rss/      → 标题「局领导」
+            #   https://zjj.sz.gov.cn/xxgk/tjsj/        → 标题「统计信息」
+            #   https://zjj.sz.gov.cn/xxgk/zjxx/czyjs/ → 标题「局长信箱」
+            # 它们都不是 index.html，于是整批穿过守卫被当详情抓走。
+            #
+            # 依据：库里 15332 条 URL 中以 / 结尾的有 617 条（4.02%），
+            # **逐条看过全是栏目页**（正文是导航，或干脆只有「联系我们」四个字），
+            # 零真文章。而 94.18% 的 URL 是带文件名的文章形态。所以这条守卫
+            # 的误杀面在实测数据上是空的。
+            #
+            # 放在 pattern_ok 之外：**即便配了 detail_pattern 也拦**。
+            # detail_pattern 是白名单（命中就绕过上面的启发式），拿它放行目录型
+            # 链接等于把刚堵上的口子重新打开——实测有 7 个源配着 pattern。
+            if path.endswith("/"):
+                return False
         # 无障碍/版权/网站地图这类页面根本不是公告，在这里就拦掉。
         # 必须在取标题之前拦：实测 sc_ny 的 /wza/ 标题整页乱码（UTF-8 字节被
         # 当 latin-1 读），等拿到标题再判已经晚了——那串乱码既不含栏目词也不含
@@ -319,8 +392,7 @@ class HtmlListCollector(BaseCollector):
             return False
         if path.endswith((".jpg", ".jpeg", ".png", ".gif", ".css", ".js", ".zip", ".rar")):
             return False
-        pattern = self.source.get("detail_pattern")
-        if pattern and not re.search(str(pattern), url):
+        if pattern and not pattern_ok:
             return False
         return True
 
@@ -344,7 +416,57 @@ class HtmlListCollector(BaseCollector):
         except Exception as exc:
             raise ValueError(f"invalid link_selector: {link_selector}") from exc
         base = base_url or self.list_url
-        links = []
+        links = list(self._links_from(anchors, base))
+
+        # 有些政府 CMS 把**整段文章列表**塞在 <script type="text/xml"><datastore>
+        # 里（浙大/南京系 CMS 的 datastore 模式，nhsa_gov / sd_swt / sd_gxt /
+        # sd_kjt / sd_fgw / sc_sd_gov 都是这个形态）。BeautifulSoup 按规范把
+        # <script> 内容当纯文本，所以 container.select() **看不见**那些 <a>：
+        # 实测 nhsa_gov 页面上原始有 67 个 <a href>，BS 只认出 21 个，其余
+        # 46 条文章链接全在 script 里 —— 表现为该源永远「0 links found on
+        # list page」，配了源也一条采不到。
+        #
+        # 所以额外把**明确声明为非 JS 类型**的 script 内容当 HTML 再解析一遍。
+        # 白名单而不是「非 JS 就算」：真 JS 块里也有 href 字样（模板字符串、
+        # 跳转代码），硬解析会捞出一堆假链接。
+        for node in soup.find_all("script"):
+            stype = str(node.get("type") or "").strip().lower()
+            if stype not in _NON_JS_SCRIPT_TYPES:
+                continue
+            inner = node.string or node.get_text() or ""
+            if "<a" not in inner:
+                continue
+            # datastore 的内容通常整段包在 <![CDATA[ ... ]]> 里。html.parser
+            # 把它当声明节点，里面的 <a> 全变成该节点的文本 —— select 取不到。
+            # 实测 nhsa_gov：剥掉 CDATA 包装后 a[href] 从 0 条变 46 条，
+            # 其中 45 条是文章链接。两头都要剥（只剥 ]]> 无效）。
+            inner = inner.replace("<![CDATA[", "").replace("]]>", "")
+            try:
+                inner_soup = self._soup(inner)
+            except Exception:                              # noqa: BLE001
+                continue
+            if inner_soup is None:
+                continue
+            try:
+                inner_anchors = inner_soup.select("a[href]")
+            except Exception:                              # noqa: BLE001
+                continue
+            extra = list(self._links_from(inner_anchors, base))
+            if extra:
+                self._note("links_from_script_datastore",
+                           "列表藏在 script/datastore 里，额外取出 %d 条" % len(extra))
+            links.extend(extra)
+
+        links = list(dict.fromkeys(links))
+        # 注意：这里**不**把已知 URL 滤掉。滤掉之后 collect() 就看不到它们，
+        # 也就没法判断"这一页全是旧的"而提前收工——而提前收工才是省时间的关键
+        # （实测不收工的话，跳过 61 个已知之后一路翻页到超时，从 186.8 秒变成
+        # 426.1 秒）。已知的判断放在 collect() 里做，由它抛 KnownDetailError。
+        return links
+
+    def _links_from(self, anchors: Any, base: str) -> list[str]:
+        """按 _link_allowed 过滤一组锚点。列表页与 script 内嵌页共用这一份。"""
+        out: list[str] = []
         for anchor in anchors:
             href = anchor.get("href") if hasattr(anchor, "get") else None
             if not href or not isinstance(href, str):
@@ -354,13 +476,8 @@ class HtmlListCollector(BaseCollector):
                 continue
             url = urljoin(base, href)
             if self._link_allowed(url) and url.rstrip("/") != base.rstrip("/"):
-                links.append(url)
-        links = list(dict.fromkeys(links))
-        # 注意：这里**不**把已知 URL 滤掉。滤掉之后 collect() 就看不到它们，
-        # 也就没法判断"这一页全是旧的"而提前收工——而提前收工才是省时间的关键
-        # （实测不收工的话，跳过 61 个已知之后一路翻页到超时，从 186.8 秒变成
-        # 426.1 秒）。已知的判断放在 collect() 里做，由它抛 KnownDetailError。
-        return links
+                out.append(url)
+        return out
 
     def _crawl4ai_enabled(self) -> bool:
         settings = self.source.get("crawl4ai", {})
@@ -493,7 +610,20 @@ class HtmlListCollector(BaseCollector):
             if not href_m:
                 continue
             href = href_m.group(1).strip()
-            if not href or href.lower().startswith(("javascript:", "#", "mailto:")):
+            # 只认真正的 http/https。**不要枚举要排除的伪协议**——
+            # 实测 mem.gov.cn 的翻页控件里写的是 ``javascirpt:void(0)``
+            # （少一个 e），按 ``startswith("javascript:")`` 过滤会漏掉它，
+            # 于是把「点击无效」当成真实 URL 去请求，翻页永远停在第 1 页，
+            # 而现象是「源没产出」——看不出是这里错了。
+            #
+            # 反过来做（协议白名单）就不用猜站方会怎么拼。
+            scheme = re.match(r"([a-zA-Z][a-zA-Z0-9+.\-]*):", href)
+            if scheme and scheme.group(1).lower() not in ("http", "https"):
+                continue
+            # 只拒锚点。``?pageNum=4`` 是合法的翻页链接（同一路径换页码），
+            # 别顺手一起拒掉——第一版加了 "?" 结果把这个写法也干掉了，
+            # 被本文件的 test_real_next_link_still_recognised_after_the_fix 抓住。
+            if not href or href.startswith("#"):
                 continue
             text = re.sub(r"<[^>]+>", "", inner)
             title = re.search(r'title\s*=\s*["\']([^"\']*)["\']', attrs, re.I)
@@ -605,7 +735,50 @@ class HtmlListCollector(BaseCollector):
 
     def _list_html(self) -> tuple[str, str]:
         response = self._request(self.list_url)
-        return self._response_text(response), str(getattr(response, "url", self.list_url))
+        html = self._response_text(response)
+        base = str(getattr(response, "url", self.list_url))
+        # 感知：列表页拿回来就判断入口是否还灵。失效必须被看见，而不是静默
+        # 返回零条 —— 「静默写入零行」正是采集层自我修复要消灭的那个行为。
+        # 只观测 + 推导修复方案 + 记事件，**不写回注册表**（见 repair.heal_and_report）。
+        # 修不了也不硬改：注册表零改动，由 self_tune 在轮后过验证再决定要不要改。
+        self._observe_selector_health(html, base)
+        return html, base
+
+    def _observe_selector_health(self, html: str, base_url: str) -> None:
+        """判断本源的采集入口（list_selector 或 detail_pattern）是否失效。
+
+        只观测 + 推导 + 记事件，**不写回注册表** —— 采集时正在跑着，改配置
+        改坏了当场就体现为数据错误。写回由 self_tune 在轮后过 before/after 决定。
+
+        best-effort：观测失败绝不能影响采集本身，所以整段吞异常，只留一条 note。
+        """
+        try:
+            from lighthouse import repair
+        except Exception as exc:                       # noqa: BLE001
+            self._note("selector_observe_skipped", f"{type(exc).__name__}: {exc}")
+            return
+        try:
+            obs = repair.observe_list_page(html, self.source, list_url=base_url)
+        except Exception as exc:                       # noqa: BLE001
+            self._note("selector_observe_failed", f"{type(exc).__name__}: {exc}")
+            return
+        if not obs.get("broken"):
+            return
+        detail = str(obs.get("detail") or "入口失效")
+        self._note("selector_broken", detail)
+        try:
+            kind = str(obs.get("kind") or "")
+            soup = self._soup(html)
+            if kind == "list_selector" and soup is not None:
+                # 容器类：手里就有 soup，直接尝试推导。kind 必须显式传过去 ——
+                # 否则会按「哪个字段非空」猜，而 list_selector 坏了但字段仍非空，
+                # 会被当成形态失效去修形态，事件类型也对不上。
+                repair.heal_and_report(self.source, soup, list_url=base_url, kind=kind)
+            else:
+                repair.report_broken(self.source, obs, html=html, url=base_url)
+        except Exception as exc:                       # noqa: BLE001
+            self._note("selector_heal_failed", f"{type(exc).__name__}: {exc}")
+
 
     def _static_quality_ok(self, parsed: Mapping[str, Any]) -> bool:
         content = str(parsed.get("content") or "")
@@ -649,6 +822,8 @@ class HtmlListCollector(BaseCollector):
         # that reaches 1-10 year history for sites that do not need rendering.
         if len(links) < cap:
             for page_html in self._static_archive_pages():
+                # 归档页也是列表页，同样要感知（翻页结构常与首页不同）
+                self._observe_selector_health(page_html, base_url)
                 links.extend(self._extract_links(page_html, base_url))
 
         # Still short: the column is JS-rendered or paginated behind a widget.
@@ -659,6 +834,10 @@ class HtmlListCollector(BaseCollector):
                     if not _html_has_content(rendered):
                         continue
                     rendered_any = True
+                    # 渲染出来的 HTML 同样要过感知。JS 渲染型政府站恰恰是
+                    # 最容易改版、最需要自愈的那批 —— 只感知首屏静态 HTML，
+                    # 等于对它们完全失明。
+                    self._observe_selector_health(rendered, base_url)
                     links.extend(self._extract_links(rendered, base_url))
                 # An empty <body> means the browser loaded nothing usable: typically
                 # HTTP 412 anti-bot (chengdu.gov.cn does exactly this) rather than a
@@ -719,6 +898,9 @@ class HtmlListCollector(BaseCollector):
             raise ValueError(f"detail page has no usable title or content: {url}")
         if self._is_section_page(str(parsed.get("title") or "")):
             raise SectionLandingError(str(parsed.get("title")))
+        if self._is_phone_directory(str(parsed.get("content") or "")):
+            raise SectionLandingError(
+                f"phone-directory page (high phone density): {parsed.get('title')}")
         if self._looks_like_listing(str(parsed.get("title") or ""),
                                     str(parsed.get("content") or "")):
             raise SectionLandingError(

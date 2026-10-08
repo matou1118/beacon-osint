@@ -35,12 +35,14 @@ from __future__ import annotations
 
 import argparse
 import glob
+import importlib.util
 import json
 import os
 import re
 import shutil
 import sys
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
@@ -65,6 +67,9 @@ BACKUP_DIR = _ROOT / "data" / "runtime"
 MIN_LINKS = 5           # 新 pattern 至少要能匹配这么多条，否则不敢写
 ID_LINE = re.compile(r"^- id:\s*(\S+)\s*$")
 _ID_LINE = ID_LINE      # write_back 用的别名
+# write_back_field 只允许改这两个字段。别的一律拒绝：sources.yaml 里还有
+# status/priority/cadence_tier 等人工登记字段，自动改了就没人知道为什么。
+_WRITABLE_FIELDS = frozenset({"detail_pattern", "list_selector"})
 # 明知不是文章的形态
 _NEVER = re.compile(r"\.(?:jpg|jpeg|png|gif|css|js|zip|rar|ico|svg|pdf|doc|docx|xls|xlsx)$"
                     r"|/(?:javascript:|mailto:|tel:)", re.I)
@@ -249,6 +254,53 @@ def derive_pattern(links: list[str], list_url: str) -> tuple[str | None, dict[st
     return pattern, diagnostics
 
 
+def write_back_field(source_id: str, field: str, value: str) -> bool:
+    """行级手术改 sources.yaml 里某个 ``key:`` 字段。保住注释和所有其他字段。
+
+    ``write_back`` 是本函数对 ``detail_pattern`` 的特化；选容器修复（2026-09-30
+    起）要写 ``list_selector``，两者的安全约束完全一样，所以共用一个实现而不是
+    复制第二份 —— 复制就会出现「pattern 写回有备份、selector 写回没有」。
+    """
+    if field not in _WRITABLE_FIELDS:
+        raise ValueError(f"拒绝写未知字段 {field!r}；"
+                         f"只允许 {sorted(_WRITABLE_FIELDS)}")
+    text = SOURCES_YAML.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    starts: list[tuple[str, int]] = []
+    for index, line in enumerate(lines):
+        found = ID_LINE.match(line)
+        if found:
+            starts.append((found.group(1).strip("\"'"), index))
+    for order, (sid, start) in enumerate(starts):
+        if sid != source_id:
+            continue
+        end = starts[order + 1][1] if order + 1 < len(starts) else len(lines)
+        pattern = re.compile(rf"^  {field}:")
+        for index in range(start, end):
+            if pattern.match(lines[index]):
+                newline = f"  {field}: {yaml_scalar(value)}\n"
+                if lines[index] == newline:
+                    return False
+                lines[index] = newline
+                BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+                shutil.copy2(SOURCES_YAML,
+                             BACKUP_DIR / f"sources.yaml.{stamp}.bak")
+                SOURCES_YAML.write_text("".join(lines), encoding="utf-8")
+                return True
+    return False
+
+
+def yaml_scalar(value: str) -> str:
+    """按需加引号：选择器里有 # 和 : 时不加引号会解析错。"""
+    text = str(value)
+    if not text:
+        return '""'
+    if re.search(r'[:#\'"\s]', text) or text[0] in "-?":
+        return '"' + text.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    return text
+
+
 def write_back(source_id: str, pattern: str) -> bool:
     """行级手术改 detail_pattern。保住注释和所有人工登记字段。"""
     text = SOURCES_YAML.read_text(encoding="utf-8")
@@ -279,6 +331,531 @@ def write_back(source_id: str, pattern: str) -> bool:
                 return True
         return False
     return False
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 选择器修复（2026-09-30 并入）
+#
+# 原来是独立的 lighthouse/selector_healer.py + lighthouse/self_heal.py。
+# 并进来的原因：诊断（self_tune）、形态推导（本模块的 derive_pattern）、
+# 修复（heal_selector）分散在三个模块里，self_tune 只能写
+# 「action=调 repair.py 重新提选择器」——它明知道自己不会修，把球踢给别人。
+# 自愈该在这里闭环：observe -> heal_selector/heal_detail_pattern -> write_back_field。
+#
+# 本节只吃已在手的 DOM（绝不重新抓取），产出 Healing；写不写回由上层决定，
+# 判据一律 before/after，绝不因为「推导成功」就改生产配置。
+# ═══════════════════════════════════════════════════════════════════════
+
+# 容器门槛。刻意与本模块的 MIN_LINKS(=5) 分开命名：那个是「写回 detail_pattern
+# 至少要匹配多少条」，这个是「选出的容器里至少要有多少条链接才算列表」。两个门槛
+# 服务两个不同的判据，共用一个数字会让「改一个把另一个也改了」。
+MIN_CONTAINER_LINKS = 4
+MIN_DETAIL_RATIO = 0.3
+# 页面至少要有这么多条链接，才够格拿来判定「入口是否失效」。
+#
+# 实测 2026-09-30（mof_gov）：第 2 个归档页是 579 字节的 JS 跳转桩 ——
+#     <script>location.replace("./tongzhitonggao/");</script><body></body>
+# 全页只有标题里那 1 个链接。它过了 500 字节护栏（只差 79 字节），于是形态
+# 过滤必然 0 条 -> 记一条「形态失效」事件；而 mof_gov 的形态其实好好的，首屏
+# 64 条链接滤出 14 条。这是**误报**：把「翻页取到跳转桩」说成「站点改版、形态
+# 过时」，白白惊动修复流程、消耗熔断预算。
+#
+# 只有 1 条链接时任何形态都滤不出 0 条 —— 推不出「形态过时」这个结论。链接少到
+# 不足以判定时，正确结论是「这一页不可用，本次不判定」。
+MIN_JUDGEABLE_LINKS = 5
+
+
+def _load_module(name: str, path: Path) -> Any:
+    """按文件路径加载项目内模块。
+
+    scripts/ 不在包内（没有 __init__.py），直接 import 会失败；用 importlib
+    按路径加载，避免为了复用两个纯函数去改包结构。
+    """
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"无法加载 {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault(name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _propose_module() -> Any:
+    return _load_module("_propose_source_config",
+                        _ROOT / "scripts" / "propose_source_config.py")
+
+
+def _repair_module() -> Any:
+    """并入本模块后就是自己。保留这个间接层：heal_selector 里调 derive_pattern
+    走它，将来若拆出真正的独立模块，改这一处即可。"""
+    import sys as _sys
+
+    return _sys.modules[__name__]
+
+
+@dataclass
+class Healing:
+    """一次修复尝试的完整结论。无论成功失败都产出，供事件表记录。"""
+
+    healed: bool                          # 是否修好了
+    kind: str = ""                        # 修的是 list_selector 还是 detail_pattern
+    old_selector: str = ""
+    new_selector: str = ""                # 仅 healed 时有值（容器选择器）
+    new_detail_pattern: str = ""          # 修复目标为形态时的产出（可空）
+    link_count: int = 0
+    detail_ratio: float = 0.0
+    reason: str = ""
+    candidates: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def heal_selector(soup: Any, old_selector: str, *, list_url: str,
+                  source_id: str = "") -> Healing:
+    """选择器匹配 0 元素时，推导一个新的。只吃已在手的 soup，绝不重新抓取。
+
+    返回 ``Healing``；``healed=False`` 表示修不了，上层应记事件 + 人工审阅，
+    不许写回注册表。
+    """
+    if soup is None:
+        return Healing(False, old_selector=old_selector, reason="没有可用的 DOM")
+    html = str(soup)
+    if not html.strip():
+        return Healing(False, old_selector=old_selector, reason="DOM 为空")
+
+    try:
+        propose = _propose_module()
+        repair = _repair_module()
+    except Exception as exc:                        # noqa: BLE001
+        return Healing(False, old_selector=old_selector,
+                       reason=f"依赖模块加载失败: {type(exc).__name__}: {exc}")
+
+    try:
+        ranked = propose._containers(html)         # 纯函数：HTML -> [(sel, n)]
+    except Exception as exc:                        # noqa: BLE001
+        return Healing(False, old_selector=old_selector,
+                       reason=f"容器枚举失败: {type(exc).__name__}: {exc}")
+
+    if not ranked:
+        return Healing(False, old_selector=old_selector,
+                       reason="页面里找不到含 >=4 条链接的容器（多半不是列表页）")
+
+    tried: list[dict[str, Any]] = []
+    # 链接多的先试。_containers 已经按链接数降序返回。
+    for selector, reported in ranked:
+        row: dict[str, Any] = {"selector": selector, "reported_links": reported}
+        try:
+            node = soup.select_one(selector)
+        except Exception as exc:                    # noqa: BLE001
+            row["error"] = f"invalid selector: {type(exc).__name__}"
+            tried.append(row)
+            continue
+        if node is None:
+            row["error"] = "在当前 DOM 上匹配不到"
+            tried.append(row)
+            continue
+
+        links = []
+        for anchor in node.select("a[href]"):
+            href = anchor.get("href")
+            if not href or not isinstance(href, str):
+                continue
+            href = href.strip()
+            if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+                continue
+            links.append(urljoin(list_url, href))
+        links = list(dict.fromkeys(links))
+        row["links"] = len(links)
+
+        # 第一道门槛
+        if len(links) < MIN_CONTAINER_LINKS:
+            row["rejected"] = f"链接数 {len(links)} < {MIN_CONTAINER_LINKS}"
+            tried.append(row)
+            continue
+
+        # 第二、三道门槛：形态推导本身会排掉同形、子栏目、非同主机
+        try:
+            pattern, diag = repair.derive_pattern(links, list_url)
+        except Exception as exc:                    # noqa: BLE001
+            row["rejected"] = f"形态推导异常 {type(exc).__name__}: {exc}"
+            tried.append(row)
+            continue
+
+        same_host = int((diag or {}).get("same_host_links") or 0)
+        ratio = round(same_host / len(links), 4) if links else 0.0
+        row["same_host_links"] = same_host
+        row["detail_ratio"] = ratio
+
+        if ratio < MIN_DETAIL_RATIO:
+            row["rejected"] = f"同主机占比 {ratio:.0%} < {MIN_DETAIL_RATIO:.0%}"
+            tried.append(row)
+            continue
+        if not pattern:
+            row["rejected"] = str((diag or {}).get("reason") or "推导不出详情页形态")
+            tried.append(row)
+            continue
+
+        row["accepted"] = True
+        row["new_detail_pattern"] = pattern
+        tried.append(row)
+        return Healing(
+            True, old_selector=old_selector, new_selector=selector,
+            new_detail_pattern=pattern, link_count=len(links),
+            detail_ratio=ratio, reason="三道门槛全部通过", candidates=tried)
+
+    return Healing(False, old_selector=old_selector,
+                   reason="所有候选都未过门槛（修不了，不写回）",
+                   candidates=tried)
+
+
+def heal_detail_pattern(links: list[str], *, list_url: str,
+                        old_pattern: str = "", source_id: str = "") -> Healing:
+    """推导新的 ``detail_pattern``。
+
+    这是部委那类源的修复路径：它们**没有 list_selector**，靠 URL 形态过滤
+    通用启发式抓到的链接（实测 mof_gov/moa_gov/mee_gov/mct_gov/mohrss_gov
+    的 list_selector 全为空，detail_pattern 分别是 /\\d{6}/t\\d{8}_\\d+\\.html?$
+    这类形态）。所以「选择器失效」对它们表现为「形态对不上，0 条入库」，
+    要修的是形态而不是容器。
+
+    复用 repair.derive_pattern —— 它已经排掉同形、子栏目、非同主机。
+    """
+    if not links:
+        return Healing(False, kind="detail_pattern", old_selector=old_pattern,
+                       reason="没有可用的链接，无法推导形态")
+    repair = _repair_module()
+    try:
+        pattern, diag = repair.derive_pattern(list(links), list_url)
+    except Exception as exc:                            # noqa: BLE001
+        return Healing(False, kind="detail_pattern", old_selector=old_pattern,
+                       reason=f"形态推导异常 {type(exc).__name__}: {exc}")
+
+    same_host = int((diag or {}).get("same_host_links") or 0)
+    ratio = round(same_host / len(links), 4) if links else 0.0
+    detail: dict[str, Any] = {"same_host_links": same_host,
+                              "detail_ratio": ratio,
+                              "shapes": (diag or {}).get("shapes") or {}}
+    if not pattern:
+        return Healing(False, kind="detail_pattern", old_selector=old_pattern,
+                       detail_ratio=ratio,
+                       reason=str((diag or {}).get("reason") or "推导不出形态"),
+                       candidates=[detail])
+    if old_pattern and pattern == old_pattern:
+        return Healing(False, kind="detail_pattern", old_selector=old_pattern,
+                       detail_ratio=ratio,
+                       reason="推导结果与现登记形态一致，无需修",
+                       candidates=[detail])
+    return Healing(True, kind="detail_pattern", old_selector=old_pattern,
+                   new_detail_pattern=pattern, link_count=len(links),
+                   detail_ratio=ratio,
+                   reason="形态推导通过同主机占比门槛", candidates=[detail])
+
+
+def heal(soup: Any, source: Mapping[str, Any], *,
+         list_url: str = "", fallback_links: list[str] | None = None) -> Healing:
+    """按源的类型选对修复路径。**这是唯一入口。**
+
+    两类源，两种失效形态（实测自 A3 夹具）：
+
+    * **有 list_selector 的源**（注册表里 50 个）：靠容器选择器定位列表。
+      选择器失效 = 匹配 0 元素 -> 重新推导容器选择器。
+    * **只有 detail_pattern 的源**（部委那批：mof_gov / moa_gov / mee_gov /
+      mct_gov / mohrss_gov …实测 list_selector 全为空）：靠 URL 形态过滤
+      通用启发式抓到的链接。失效表现为「形态对不上，0 条入库」-> 重新推导形态。
+
+    第一版只做了容器选择器那一类，夹具里 5 个部委源全部「跳过」，因为它们
+    根本没有 list_selector —— 那不是它们没问题，是这条路径压根不适用。
+    """
+    list_url = list_url or str(source.get("url") or "")
+    old_selector = str(source.get("list_selector") or "")
+
+    if old_selector:
+        out = heal_selector(soup, old_selector, list_url=list_url,
+                            source_id=str(source.get("id") or ""))
+        if out.healed:
+            out.kind = "list_selector"
+        return out
+
+    # 没有 list_selector -> 修形态。链接优先用调用方传入的（就是本次真实抓到的），
+    # 否则从 DOM 里现取。
+    links = list(fallback_links or [])
+    if not links and soup is not None:
+        try:
+            from urllib.parse import urljoin
+            links = [urljoin(list_url, a.get("href"))
+                     for a in soup.select("a[href]") if a.get("href")]
+            links = list(dict.fromkeys(u for u in links
+                                       if u and not u.startswith("#")))
+        except Exception:                                   # noqa: BLE001
+            links = []
+    return heal_detail_pattern(links, list_url=list_url,
+                              old_pattern=str(source.get("detail_pattern") or ""),
+                              source_id=str(source.get("id") or ""))
+
+
+def observe_list_page(html: str, source: Mapping[str, Any], *,
+                      list_url: str = "") -> dict[str, Any]:
+    """感知：列表页取回来之后，判断「这个源的采集入口还灵不灵」。
+
+    放在列表层而不是详情层，因为「选择器失效」的现象是**列表为空**，不是详情
+    变少。上面那句「不是静默写入零行」说的就是这件事。
+
+    只观测，不修复、不写回 —— 这是影子模式的全部内容。
+
+    返回 ``{"broken": bool, "kind": str, "detail": str, "links": int}``。
+    """
+    out: dict[str, Any] = {"broken": False, "kind": "", "detail": "", "links": 0}
+    list_url = list_url or str(source.get("url") or "")
+    if not html or len(html) < 500:
+        out["detail"] = f"页面过短({len(html or '')} 字)，可能没加载出来"
+        return out
+    from bs4 import BeautifulSoup
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+    except Exception as exc:                              # noqa: BLE001
+        out["detail"] = f"解析失败 {type(exc).__name__}: {exc}"
+        return out
+
+    # ── 页面够不够格当「列表页」来判定 ──────────────────────────────────
+    # 这个闸必须在两个分支之前。判据是**链接数**而不是字节数（见
+    # MIN_JUDGEABLE_LINKS 的注释：mof_gov 的翻页跳转桩 579 字节，只差 79 字
+    # 就绕过字节护栏，但全页只有 1 个链接，不足以判定）。
+    from urllib.parse import urljoin
+    all_links = [urljoin(list_url, a.get("href"))
+                 for a in soup.select("a[href]")
+                 if a.get("href") and not a.get("href").startswith(("#", "javascript:"))]
+    out["links"] = len(all_links)
+    if len(all_links) < MIN_JUDGEABLE_LINKS:
+        out["detail"] = (f"全页仅 {len(all_links)} 条链接，不足以判定入口"
+                         f"（可能是跳转桩/空页/翻页失败），本次不判定")
+        return out
+
+    list_selector = str(source.get("list_selector") or "")
+    old_pattern = str(source.get("detail_pattern") or "")
+
+    if list_selector:
+        out["kind"] = "list_selector"
+        if selector_matches(soup, list_selector):
+            node = soup.select_one(list_selector)
+            out["links"] = len(node.select("a[href]")) if node else 0
+            return out
+        out["broken"] = True
+        out["detail"] = f"list_selector={list_selector} 在当前页面上匹配 0 元素"
+        return out
+
+    if old_pattern:
+        out["kind"] = "detail_pattern"
+        links = all_links
+        try:
+            kept = [u for u in links if re.search(old_pattern, u)]
+        except re.error:
+            kept = []
+        out["matched"] = len(kept)
+        # 形态类源的「有效」判据是**滤出了东西**，不是滤出多少。
+        #
+        # 门槛不能沿用容器的 MIN_LINKS：像 zj_fgw 这种源，它登记的形态就是
+        # 栏目页本身（detail_pattern=/col/col\d+/index\.html），列表页里 45 条
+        # 链接有 33 条是同形态、12 条跨域，滤出数天然就少。用「>=4」判它失效，
+        # 会去修一个没坏的形态 —— 而 derive_pattern 又会正确地拒绝（页面里确实
+        # 没有文章链接），最后记一条假事件，白白消耗一轮修复预算。
+        if kept:
+            return out
+        out["broken"] = True
+        out["detail"] = (f"detail_pattern={old_pattern} 一条都滤不出"
+                         f"（页面共 {len(links)} 条链接）")
+        return out
+
+
+    out["detail"] = "该源既无 list_selector 也无 detail_pattern，用通用启发式"
+    return out
+
+
+def selector_matches(soup: Any, selector: str | None) -> bool:
+    """保存的选择器在当前 DOM 上还能不能匹配到东西。
+
+    这是「感知」环节：匹配 0 元素说明选择器已失效（站点改版），该触发修复，
+    而不是静默写入零行。
+    """
+    if soup is None or not selector:
+        return True                      # 没配选择器 = 走通用启发式，不算失效
+    try:
+        node = soup.select_one(str(selector))
+    except Exception:                   # noqa: BLE001
+        return False                     # 选择器本身非法 = 失效
+    if node is None:
+        return False
+    # 匹配到空容器也算失效：改版常把 class 留着、内容挪走
+    if node.select("a[href]") or node.get_text(strip=True):
+        return True
+    return False
+
+
+
+# ── 事件记录（感知到失效时的副作用）────────────────────────────────────
+# 只记事件，不写回注册表。写回要过 before/after 验证，由 self_tune 那一层决定，
+# 采集时这一层无权改生产配置 —— 采集正在跑着，改坏了当场就体现为数据错误。
+
+EVENTS_DB = str(_ROOT / "data" / "beacon.db")
+
+
+def _now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def event_id(source_id: str, url: str, ts: str) -> str:
+    """幂等键：同一个源同一秒内的同一事件只记一次。"""
+    import hashlib
+
+    raw = f"{source_id}|{url}|{ts}".encode("utf-8")
+    return "evt-sel-" + hashlib.sha1(raw).hexdigest()[:12]
+
+
+def report_broken(source: Mapping[str, Any], obs: Mapping[str, Any],
+                  *, html: str = "", url: str = "") -> dict[str, Any]:
+    """记一条「感知到入口失效、修都没试」的事件。到此为止 —— 不写回。
+
+    绝不抛异常：事件记录失败不能拖垮采集。
+    """
+    source_id = str(source.get("id") or "")
+    list_url = url or str(source.get("url") or "")
+    kind = str(obs.get("kind") or "unknown")
+    links = int(obs.get("links") or 0)
+    matched = float(obs.get("matched") or 0)
+    try:
+        from lighthouse import event_bus
+
+        eid = event_bus.emit(
+            layer="collector",
+            scope=f"source_id:{source_id}",
+            failure_type=("selector_broken" if kind == "list_selector"
+                          else "detail_pattern_stale"),
+            action="observe_only",
+            repair_result="skipped",
+            source="repair",
+            detail=str(obs.get("detail") or "入口失效"),
+            extra={
+                "url": list_url,
+                "old_selector": str(source.get(kind) or ""),
+                "new_selector": "",
+                "link_count": links,
+                "detail_ratio": round(matched / max(1, links), 4),
+            },
+        )
+        return {"recorded": eid is not None, "kind": kind, "event_id": eid or ""}
+    except Exception as exc:                             # noqa: BLE001
+        return {"recorded": False, "kind": kind,
+                "record_error": f"{type(exc).__name__}: {exc}"}
+
+
+def heal_and_report(source: Mapping[str, Any], soup: Any, *,
+                    list_url: str = "", links: list[str] | None = None,
+                    kind: str = "") -> dict[str, Any]:
+    """感知到失效后的修复尝试。影子模式下**不写回**，只记事件。
+
+    ``kind`` 来自观测结果（list_selector / detail_pattern）。必须显式传：
+    否则会退回「按 source 里哪个字段非空来判断」，而那正是 A4 首跑暴露的
+    bug —— list_selector 是坏的、但字段仍然非空，于是被当成形态失效去修形态，
+    事件类型记成 detail_pattern_stale，跟实际问题对不上。
+    """
+    from lighthouse import repair as sh  # noqa: F811  (同模块，走自身)
+
+    out: dict[str, Any] = {"kind": kind}
+    try:
+        if kind == "list_selector":
+            h = sh.heal_selector(soup, str(source.get("list_selector") or ""),
+                                  list_url=list_url or str(source.get("url") or ""),
+                                  source_id=str(source.get("id") or ""))
+        else:
+            h = sh.heal_detail_pattern(
+                list(links or []),
+                list_url=list_url or str(source.get("url") or ""),
+                old_pattern=str(source.get("detail_pattern") or ""),
+                source_id=str(source.get("id") or ""))
+    except Exception as exc:                             # noqa: BLE001
+        out["error"] = f"{type(exc).__name__}: {exc}"
+        return out
+
+    out.update({
+        "healed": h.healed, "kind": h.kind or kind,
+        "old": h.old_selector, "new": h.new_selector,
+        "new_pattern": h.new_detail_pattern,
+        "links": h.link_count, "reason": h.reason,
+    })
+
+    source_id = str(source.get("id") or "")
+    url = list_url or str(source.get("url") or "")
+    effective = kind or h.kind
+    failure = ("selector_broken" if effective == "list_selector"
+               else "detail_pattern_stale")
+    action = ("heal_selector" if effective == "list_selector"
+              else "heal_detail_pattern")
+
+    # 采集期这一层**只推导不写回**：候选方案一律记 candidate，采集正在跑着，
+    # 此时改 sources.yaml 改坏了当场就体现为数据错误。写回由 self_tune 在轮后
+    # 过 before/after 验证决定。
+    #
+    # 事件只写 event_bus 一处。原先同时写 selector_events(SQLite) 和
+    # events.jsonl，同一事件两个账本，对不上且两边都得查；2026-09-30 已合并，
+    # 采集专属字段（link_count / detail_ratio / 候选明细）进 extra。
+    try:
+        from lighthouse import event_bus
+
+        eid = event_bus.emit(
+            layer="collector",
+            scope=f"source_id:{source_id}",
+            failure_type=failure,
+            action=action,
+            repair_result="candidate" if h.healed else "skipped",
+            source="repair",
+            detail=h.reason or f"{effective}: {h.old_selector}->{h.new_selector}",
+            extra={
+                "url": url,
+                "old_selector": h.old_selector,
+                "new_selector": h.new_selector,
+                "new_pattern": h.new_detail_pattern,
+                "link_count": h.link_count,
+                "detail_ratio": h.detail_ratio,
+                "candidates": h.candidates[:5],
+            },
+        )
+        out["recorded"] = eid is not None
+        out["event_id"] = eid or ""
+    except Exception as exc:                             # noqa: BLE001
+        out["recorded"] = False
+        out["record_error"] = f"{type(exc).__name__}: {exc}"
+    return out
+
+
+def stats() -> dict[str, Any]:
+    """自愈观测统计：「感知了多少 / 推导出方案多少 / 判定修不了多少」。
+
+    数据源是统一事件流（event_bus），不是独立的 selector_events 表 ——
+    2026-09-30 合并掉了原先的双账本。
+    """
+    from lighthouse import event_bus
+
+    try:
+        events = event_bus.read_events()
+    except Exception as exc:                             # noqa: BLE001
+        return {"total": 0, "healed": 0, "breakdown": {},
+                "error": f"{type(exc).__name__}: {exc}"}
+
+    mine = [e for e in events if e.get("source") == "repair"]
+    healed = [e for e in mine if e.get("repair_result") == "candidate"]
+    breakdown: dict[str, int] = {}
+    for e in mine:
+        key = "{}/{}/{}".format(e.get("failure_type", "?"),
+                                e.get("action", "?"),
+                                e.get("repair_result", "?"))
+        breakdown[key] = breakdown.get(key, 0) + 1
+    return {"total": len(mine), "healed": len(healed),
+            "breakdown": dict(sorted(breakdown.items(), key=lambda kv: -kv[1])),
+            "events_total": len(events)}
 
 
 def main(argv: list[str] | None = None) -> int:

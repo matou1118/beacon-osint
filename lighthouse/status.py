@@ -9,6 +9,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+
+# 本脚本用 tasklist 查进程存活，那个命令要控制台。装了 winflags，
+# Popen 的无参调用会自动补 CREATE_NO_WINDOW（2026-10-03 实测弹窗）。
+from lighthouse.winflags import install as _install_no_window  # noqa: E402
+_install_no_window()
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -19,8 +25,25 @@ STOP_FLAG = _ROOT / "data" / "runtime" / "lighthouse" / "STOP"
 
 
 def alive(pid: int) -> bool:
+    # tasklist 必须用 subprocess + CREATE_NO_WINDOW，**不能用 os.popen**。
+    #
+    # 2026-10-03 实测：`os.popen('tasklist ...')` 会先起一个 `cmd.exe`，
+    # 而 cmd.exe 一定要控制台 —— 于是桌面上一秒一闪一个黑框。而
+    # winflags 那套全局补丁只改Popen 的 creationflags，管不到 os.popen
+    # （它不走 Popen），所以这个窗口怎么都消不掉。
+    #
+    # 顺带一提：`errors="replace"` + 本地代码页解码，是因为 tasklist 输出是
+    # GBK；直接按 utf-8 解会抛 UnicodeDecodeError（scripts/status_summary.py
+    # 的注释记过这个坑）。
     if os.name == "nt":
-        out = os.popen(f'tasklist /FI "PID eq {pid}" 2>NUL').read()
+        try:
+            out = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}"],
+                capture_output=True, timeout=10,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            ).stdout.decode("mbcs", errors="replace")
+        except (OSError, subprocess.SubprocessError):
+            return False
         return str(pid) in out
     try:
         os.kill(pid, 0)

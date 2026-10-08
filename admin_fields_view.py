@@ -43,7 +43,8 @@ def list_extractions(
     status: str | None = None,
     topic_id: int | None = None,
     only_revised: bool = False,
-    limit: int = 60,
+    limit: int = 200,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     db = Database(db_path)
     try:
@@ -54,6 +55,7 @@ def list_extractions(
                 .join(PolicyTopic, FieldExtraction.topic_id == PolicyTopic.id)
                 .order_by(FieldExtraction.confidence.asc(), FieldExtraction.id.desc())
                 .limit(limit)
+                .offset(offset)
             )
             if status is not None:
                 query = query.where(FieldExtraction.status == status)
@@ -115,6 +117,30 @@ def clear_revision(db_path: str, extraction_id: int) -> bool:
         db.close()
 
 
+def count_extractions(
+    db_path: str,
+    status: str | None = None,
+    topic_id: int | None = None,
+    only_revised: bool = False,
+) -> int:
+    """统计符合条件的提取记录总数，用于分页。"""
+    db = Database(db_path)
+    try:
+        with db.session() as session:
+            query = select(func.count()).select_from(FieldExtraction)
+            if status is not None:
+                query = query.where(FieldExtraction.status == status)
+            if topic_id is not None:
+                query = query.where(FieldExtraction.topic_id == topic_id)
+            if only_revised:
+                query = query.where(
+                    FieldExtraction.revised_value.is_not(None), FieldExtraction.revised_value != ""
+                )
+            return int(session.scalar(query) or 0)
+    finally:
+        db.close()
+
+
 def render(db_path: str = "data/beacon.db") -> None:
     st.caption("原始提取值永久留痕；修正值立即生效于对比工作台。置信度不足的字段会先进入待确认列。")
 
@@ -128,12 +154,28 @@ def render(db_path: str = "data/beacon.db") -> None:
             st.metric(label, stats[key])
 
     tab_pending, tab_revised, tab_auto = st.tabs(["待确认", "已修正", "自动提取"])
+    PAGE_SIZE = 200
     for tab, status, only_revised in ((tab_pending, "pending", False), (tab_revised, None, True), (tab_auto, "auto", False)):
         with tab:
-            items = list_extractions(db_path, status=status, topic_id=topic_id, only_revised=only_revised)
-            if not items:
+            total_count = count_extractions(db_path, status=status, topic_id=topic_id, only_revised=only_revised)
+            if total_count == 0:
                 st.info("该分类暂无字段。")
                 continue
+            # 分页控件
+            num_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE
+            if num_pages > 1:
+                page = st.number_input(
+                    f"页码（共 {total_count} 条，{num_pages} 页）",
+                    min_value=1, max_value=num_pages, value=1, step=1,
+                    key=f"page-{status or 'revised'}-{topic_id}",
+                )
+                offset = (int(page) - 1) * PAGE_SIZE
+                st.caption(f"显示第 {offset + 1}–{min(offset + PAGE_SIZE, total_count)} 条，共 {total_count} 条")
+            else:
+                offset = 0
+                st.caption(f"共 {total_count} 条")
+            items = list_extractions(db_path, status=status, topic_id=topic_id, only_revised=only_revised,
+                                     limit=PAGE_SIZE, offset=offset)
             for item in items:
                 with st.container(border=True):
                     effective = item["revised_value"] or item["value"] or "（空）"
@@ -152,12 +194,12 @@ def render(db_path: str = "data/beacon.db") -> None:
                             key=f"rev-{item['id']}",
                         )
                     with mid:
-                        if st.button("保存修正", key=f"save-{item['id']}", use_container_width=True):
+                        if st.button("保存修正", key=f"save-{item['id']}", width="stretch"):
                             revise_extraction(db_path, item["id"], new_value)
                             st.success("已保存。")
                             st.rerun()
                     with right:
-                        if item["revised_value"] and st.button("撤销修正", key=f"undo-{item['id']}", use_container_width=True):
+                        if item["revised_value"] and st.button("撤销修正", key=f"undo-{item['id']}", width="stretch"):
                             clear_revision(db_path, item["id"])
                             st.info("已撤销。")
                             st.rerun()

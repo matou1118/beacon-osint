@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -32,7 +32,17 @@ def main() -> int:
         return 0
     con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     total = con.execute("SELECT COUNT(*) FROM announcements").fetchone()[0]
-    since = (datetime.now() - WINDOW).isoformat(sep=" ", timespec="seconds")
+    # ★ 阈值必须用 **UTC**，因为 created_at / fetched_at 存的是 UTC。
+    #
+    # 2026-10-05 实测踩过：这里原来写 ``datetime.now() - WINDOW``（本地时间）。
+    # 本机 UTC+8，于是「最近 14 小时」被算成「最近 6 小时」——
+    # 实际比较的是 ``created_at(UTC) >= 本地时间字符串``，
+    # 起点被往后推了 8 小时，最近 8 小时的产出**整段漏掉**。
+    # 后果正是「今天采集这么低」这种误判：数据明明入库了，体检脚本报少。
+    #
+    # 口径统一：**和数据库列比就用 UTC，只在给人看的输出里转本地时**。
+    since = (datetime.now(timezone.utc) - WINDOW).isoformat(
+        sep=" ", timespec="seconds")
     fresh = con.execute(
         "SELECT COUNT(*) FROM announcements WHERE created_at >= ?", (since,)).fetchone()[0]
     fetched = con.execute(

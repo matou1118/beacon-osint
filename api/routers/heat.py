@@ -10,6 +10,16 @@ from storage.db import Database
 router = APIRouter()
 
 
+@router.get("/dates")
+def heat_dates(db: Database = Depends(get_db)):
+    return {"code": 0, "data": {"dates": db.list_heat_dates()}}
+
+
+@router.get("/trend")
+def heat_trend(db: Database = Depends(get_db)):
+    return {"code": 0, "data": {"trend": db.heat_trend()}}
+
+
 @router.get("/topics")
 def list_topics(date: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=200), db: Database = Depends(get_db)):
     report_date = date or datetime.now(timezone.utc).date().isoformat()

@@ -24,8 +24,9 @@ class MapDashboardTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertEqual(len(context["geojson"]["province"]["features"]), 35)
-        self.assertEqual(len(context["geojson"]["city"]["features"]), 372)
+        self.assertNotIn("geojson", context)  # 边界数据走 /app/static/geo，不再内联进 iframe
+        self.assertEqual(len(map_geojson("province")["features"]), 35)
+        self.assertEqual(len(map_geojson("city")["features"]), 372)
         self.assertEqual(context["lookups"]["province"]["四川省"], "510000")
         self.assertNotIn("content", context["records"][0])
         self.assertEqual(context["years"], ["2026"])

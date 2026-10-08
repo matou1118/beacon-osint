@@ -401,7 +401,11 @@ def audit(rows: list[dict[str, Any]], field: str = "summary") -> dict[str, Any]:
             ratio = len(text) / max(1, len(body))
             if ratio > COMPRESS_CEILING:
                 counts["compression_high"] += 1
-            if ratio < COMPRESS_FLOOR:
+            # Don't score compression_low when the hard cap makes it impossible.
+            # MAX_SUMMARY_CHARS=600 on a 8000-char body gives ratio 0.075 < 0.10,
+            # but that's the cap working as designed, not a too-thin summary.
+            # Only count it when the cap could in principle reach the floor.
+            if ratio < COMPRESS_FLOOR and MAX_SUMMARY_CHARS >= COMPRESS_FLOOR * len(body):
                 counts["compression_low"] += 1
         if not text.rstrip().endswith(("。", "！", "？", "：", "）", "】")):
             # A roster of names legitimately ends without punctuation, so only

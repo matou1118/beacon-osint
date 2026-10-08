@@ -360,6 +360,36 @@ def record(step: Step) -> None:
             "after": step.after,
             "notes": step.notes,
         }, ensure_ascii=False) + "\n")
+    # 同步写统一事件流（event_bus），让 self_evolve 能跨系统聚合。
+    # best-effort：写失败不影响 self_improve 本身的行为。
+    try:
+        from lighthouse import event_bus
+        if not step.applied:
+            repair_result = "skipped"
+        elif step.kept:
+            repair_result = "kept"
+        else:
+            repair_result = "reverted"
+        # 效用分：kept → |after - before|（正=改善），reverted → -0.5
+        if repair_result == "kept":
+            utility = abs(step.after - step.before) if step.before != 0 else 0.0
+        elif repair_result == "reverted":
+            utility = -0.5
+        else:
+            utility = 0.0
+        event_bus.emit(
+            layer="summary",
+            scope=f"metric:{step.metric}",
+            failure_type=step.defect_id,
+            action=step.fix_id,
+            repair_result=repair_result,
+            source="self_improve",
+            detail=f"{step.defect_id}/{step.metric}: {step.before}→{step.after} ({repair_result})",
+            utility=utility,
+            extra={"before": step.before, "after": step.after},
+        )
+    except Exception:                                         # noqa: BLE001
+        pass
 
 
 # ── discover_fix：从失败样本中发现新修复候选 ──────────────────

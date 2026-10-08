@@ -1,0 +1,8 @@
+{
+  "source_id": "mee_gov",
+  "url": "https://www.mee.gov.cn/ywdt/gsgg/gongshi/",
+  "list_selector": null,
+  "link_selector": null,
+  "detail_pattern": "/\\d{6}/t\\d{8}_\\d+\\.s?html?$",
+  "bytes": 41493
+}

@@ -76,43 +76,38 @@ class NextLinkTests(unittest.TestCase):
         self.assertIsNone(collector()._next_page_link(html, BASE, set()))
 
 
-class PageUrlTests(unittest.TestCase):
-    """保留按 URL 猜的能力：财政部/教育部那批是静态 index_N.shtml，没有翻页控件。"""
-
-    def _p(self, url: str, index: int):
+    def test_pseudo_protocol_hrefs_rejected_whatever_the_spelling(self):
+        # ★ 伪协议链接按**协议白名单**拒，不能枚举拼写。
+        #
+        # 实测 2026-10-02：mem.gov.cn 的翻页控件里写的是
+        #     href="javascirpt:void(0)"      <- 少一个 e
+        # 原来的 startswith(("javascript:", "#", "mailto:")) 漏掉它，于是把
+        # 「点击无效」当成真实 URL 去请求，翻页永远停在第 1 页，现象却只是
+        # 「源没产出」——完全看不出是这里错了。
         c = collector()
-        c.list_url = url
-        return c._page_url(index)
+        base = "https://www.mem.gov.cn/xw/"
+        for href in ("javascirpt:void(0)", "javascript:void(0)",
+                     "JavaScript:;", "vbscript:msgbox",
+                     "mailto:a@b.gov.cn", "#top", "tel:010-12345678"):
+            html = '<a href="%s">下一页</a>' % href
+            self.assertIsNone(
+                c._next_page_link(html, base, set()),
+                "伪协议 %r 被当成了真实翻页链接" % href)
 
-    def test_index_shtml(self):
-        self.assertEqual(self._p("https://x.gov.cn/a/index.shtml", 2),
-                         "https://x.gov.cn/a/index_2.shtml")
-
-    def test_query_page(self):
-        self.assertEqual(self._p("https://x.gov.cn/a/list?page=1", 3),
-                         "https://x.gov.cn/a/list?page=3")
-
-    def test_zero_based_family_left_to_renderer(self):
-        """list_1.shtml 已经带序号，再套会套错，交给渲染器。"""
-        self.assertIsNone(self._p("https://x.gov.cn/a/list_1.shtml", 2))
-
-    def test_placeholder_is_actually_substituted(self):
-        # re.sub(pattern, template, text) returned a literal "index_{n}.shtml":
-        # the {n} was never substituted, so archive_pages never worked for the
-        # list.shtml / index.shtml family. Measured as "page 2 has 0 rows".
-        got = self._p("https://x.gov.cn/a/index.shtml", 2)
-        self.assertNotIn("{n}", got)
-        self.assertNotIn("{", got)
-
-    def test_list_shtml(self):
-        self.assertEqual(self._p("https://x.gov.cn/a/list.shtml", 3),
-                         "https://x.gov.cn/a/list_3.shtml")
-
-    def test_col_index_html_guesses_as_fallback(self):
-        # Measured 404 on Guangdong/Hebei, so the real next-link is tried
-        # first and this guess is only a fallback. Pins current behaviour.
-        self.assertEqual(self._p("https://x.gov.cn/col/col284/index.html", 2),
-                         "https://x.gov.cn/col/col284/index_2.shtml")
+    def test_real_next_link_still_recognised_after_the_fix(self):
+        # 白名单不能把真链接也拦掉——改这块时最容易出的回归。
+        c = collector()
+        base = "https://x.gov.cn/col/col1/index.html"
+        cases = (
+            '<a href="/col/col1/index_2.shtml">下一页</a>',
+            '<a href="index_3.shtml">下页</a>',
+            '<a href="/jpage/dataproxy.jsp?page=2&amp;colid=1">下一页</a>',
+            '<a href="?pageNum=4">next</a>',
+        )
+        for html in cases:
+            self.assertIsNotNone(
+                c._next_page_link(html, base, set()),
+                "真翻页链接被误拒：%s" % html)
 
 
 if __name__ == "__main__":

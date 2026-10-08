@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+		<meta name="viewport" content="width=device-width,height=device-height, user-scalable=no,initial-scale=1, minimum-scale=1, maximum-scale=1,target-densitydpi=device-dpi "> 
+                <meta name="SiteName" content="农业农村部网站" />
+<meta name="SiteDomain" content="http://www.moa.gov.cn/" />
+<meta name="SiteIDCode" content="bm21000007" />
+<meta name="ColumnName" content="通知公告" /><!--栏目描述-->
+<meta name="ColumnDescription" content="" /><!--栏目关键字-->
+<meta name="ColumnKeywords" content="" /><!--栏目类别-->
+<meta name="ColumnType" content="通知公告" />
+<!--天润meta start-->
+<meta name="filetype" content="0"> 
+<meta name="publishedtype" content="1"> 
+<meta name="pagetype" content="2"> 
+<meta  name="catalogs"  content="S194"> 
+<script src="../images/webdig.js" language="javascript" type="text/javascript" async></script>
+<!--天润meta end-->
+		<title>首页-通知公告</title>
+		<script src="../images/jquery-1.12.4.min.js"></script>
+                <script src="../images/yidongduan_2019sj.js"></script>                
+
+                <link class="mobileStyle" type="text/css" rel="stylesheet" href="../images/swiper.min.css">
+                <link class="mobileStyle" type="text/css" rel="stylesheet" href="../images/base_yidong_2019sj.css">
+                <link class="mobileStyle" type="text/css" rel="stylesheet" href="../images/index_yidong_2019sj.css">
+
+                <link class="stylefile" type="text/css" rel="stylesheet" href="../images/base_2019sj.css">
+                <link class="stylefile" type="text/css" rel="stylesheet" href="../images/index_2019sj.css">
+
+		<script src="../images/jquery.hwSlider_2019sj.min.js"></script>
+		<script src="../images/jquery.SuperSlide.20190417.1.1.js"></script>
+		<!--<script src="../images/index_yidongduan_2019sj.js"></script>-->
+	        <script>
+                   var isPC=IsPC();//获取是否为PC端
+                   if(isPC){//如果是PC端加载PC的js和css
+                      $(".mobileStyle").remove();
+                      dynamicLoadJs('/images/common_2019sj.js')
+                      dynamicLoadJs('/images/respond.src.js')
+                   }else{//如果是移动端加载移动端的js和css
+                      $(".stylefile").remove();
+                      dynamicLoadJs('/images/swiper.min.js')
+                      dynamicLoadJs('/images/respond.src.js')
+                      dynamicLoadJs('/images/common_yidong_2019sj.js')
+                      dynamicLoadJs('/images/yidong_zhengwu_zhengwufuwu_2019sj.js')
+                      dynamicLoadJs('/images/mjgzn_2019sj.js')
+
+                   }
+
+
+  function IsPC() {//获取设备是否为PC的方法
+    var userAgentInfo = navigator.userAgent;
+    var Agents = ["Android", "iPhone",
+                "SymbianOS", "Windows Phone",
+                "iPad", "iPod"];
+    var flag = true;
+    for (var v = 0; v < Agents.length; v++) {
+        if (userAgentInfo.indexOf(Agents[v]) >= 0) {
+            flag = false;
+            break;
+        }
+    }
+    return flag;
+};
+
+function dynamicLoadCss(url) {//加载css方法
+    var head = document.getElementsByTagName('head')[0];
+    var link = document.createElement('link');
+    link.type='text/css';
+    link.rel = 'stylesheet';
+    link.href = url;
+    head.appendChild(link);
+}
+function dynamicLoadJs(url, callback) {//加载js方法
+    var head = document.getElementsByTagName('head')[0];
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = url;
+    if(typeof(callback)=='function'){
+        script.onload = script.onreadystatechange = function () {
+            if (!this.readyState || this.readyState === "loaded" || this.readyState === "complete"){
+                callback();
+                script.onload = script.onreadystatechange = null;
+            }
+        };
+    }
+    head.appendChild(script);
+}
+
+ </script>
+	
+	</head>
+	<body>
+		<script type="text/javascript">
+<!--头部导航点击添加class效果-->
+$(function(){
+    function nav_cur(){
+		 var src="https://zzys.moa.gov.cn/tzgg/";
+	         if(src.indexOf("jgzn")!==-1){
+		   $(".nav ul li:eq(0)").addClass("nav-active").siblings().removeClass("nav-active");
+   	          }else if(src.indexOf("gzdt")!==-1)
+		  {$(".nav ul li:eq(1)").addClass("nav-active").siblings().removeClass("nav-active");  
+		  }else if(src.indexOf("zcjd")!==-1){
+		   $(".nav ul li:eq(2)").addClass("nav-active").siblings().removeClass("nav-active");  
+		  }else if(src.indexOf("tzgg")!==-1){
+		   $(".nav ul li:eq(3)").addClass("nav-active").siblings().removeClass("nav-active");  
+		  }else if(src.indexOf("gzjl")!==-1){
+		   $(".nav ul li:eq(4)").addClass("nav-active").siblings().removeClass("nav-active");  
+		  }
+		 }nav_cur();
+});   	   
+</script>
+<div class="top">
+		    <div class="top_con">
+		    <!--<div class="top_left"><a id="StranLink" href="#">繁體版</a><a href="#">English</a><a href="#">Pусский</a><a href="#">日本語</a></div>-->
+		        <div class="top_left"><a id="StranLink" style="color:#ed1b06;"><strong>中文</strong></a><a href="https://english.moa.gov.cn/" target="_blank">English</a><button id="toolbarSwitch" style="background: none;border: none;color: #555;margin-left: 10px;cursor: pointer; outline:none;font-size:14px;">无障碍</button></div>
+		        <div class="calendar"><script src="/images/nyb_calendar.js"></script></div>
+		        <div class="top_right"><a href="https://mail.agri.gov.cn/" target="_blank" class="tool_mail">农业农村部邮箱</a></div>
+		    </div>
+		</div>
+		<div class="header">
+			<div class="logo">
+				<div class="logoBox logoZzyglBox">
+					<a href="https://www.moa.gov.cn/" target="_blank"><div class="logo-china"></div></a>
+					<div class="logo_sj2019"></div>	
+					<form  action='/ss/s?qt=' method="get" onsubmit="return submitSearchnew();" target='_blank'>
+					<label for="" class=''>
+						<input type='text' name='qt' id="loginname" value="请输入关键字" />
+						<button id="search_btn" >搜索</button>
+					</label>
+                                     </form>
+				</div>
+			</div>
+<script>
+$(function(){
+	
+	$(".logoBox input").focus(function(){
+		var val=$(this).val();
+		if(val==="请输入关键字"){
+			$(this).val("");
+		}
+	})
+	$(".logoBox input").blur(function(){
+		var val=$(this).val();
+		if(val===""){
+			$(this).val("请输入关键字");
+		}
+	})
+})
+
+
+   function submitSearchnew(){
+$("#loginname").val($("#loginname").val().replace(/[\-\_\,\!\|\~\`\(\)\#\$\%\^\&\*\{\}\:\;\"\L\<\>\?]/g, ''));
+        var search_input = document.getElementById("loginname").value;         
+        if(search_input == "请输入关键字" || search_input == "" )
+        {
+          alert("请输入检索词！");
+          return false;
+        }
+      }
+
+</script>
+			<div class="nav zzyglNav">
+                <ul>
+					
+                                       
+                                        <li><a href="https://zzys.moa.gov.cn/jgzn/" target="_blank">机构职能</a></li>
+                                      
+                                        <li><a href="https://zzys.moa.gov.cn/gzdt/" target="_blank">工作动态</a></li>
+                                      
+                                        <li><a href="https://zzys.moa.gov.cn/zcjd/" target="_blank">政策解读</a></li>
+                                      
+                                        <li><a href="https://zzys.moa.gov.cn/tzgg/" target="_blank">通知公告</a></li>
+                                      
+                                        <li><a href="https://zzys.moa.gov.cn/gzjl/" target="_blank">工作交流</a></li>
+                                      
+				</ul>
+			</div>
+			<div class="swiper-container swiper2">
+		        <div class="swiper-wrapper">
+		           
+		            <div class="swiper-slide"><a href="https://zzys.moa.gov.cn/jgzn/" target="_blank">机构职能</a></div>
+		           
+		            <div class="swiper-slide"><a href="https://zzys.moa.gov.cn/gzdt/" target="_blank">工作动态</a></div>
+		           
+		            <div class="swiper-slide"><a href="https://zzys.moa.gov.cn/zcjd/" target="_blank">政策解读</a></div>
+		           
+		            <div class="swiper-slide"><a href="https://zzys.moa.gov.cn/tzgg/" target="_blank">通知公告</a></div>
+		           
+		            <div class="swiper-slide"><a href="https://zzys.moa.gov.cn/gzjl/" target="_blank">工作交流</a></div>
+		           
+		        </div>
+		    </div>
+		</div>
+        
+		<div class="main">
+			<p class="main-title2">当前位置：<a href="https://www.moa.gov.cn/">首页</a>&nbsp;>&nbsp;<a href="https://www.moa.gov.cn/jg/">机构</a>&nbsp;>&nbsp;<a href="../" title="种植业管理司">种植业管理司</a>&nbsp;>&nbsp;通知公告</p>
+			
+			<div class="sj_er_kuang sj_judingbuc">
+				<div class="">
+					<div class="sj_ertitle33"><span>通知公告</span></div>
+					<div class="sj_e_tonzhi_list">
+						<ul id="div">
+                        
+							
+							<li ><a href="./202609/t20260927_6488144.htm" target="_blank" title='农业农村部召开全国“三秋”农业生产工作视频会议强调全力以赴抓好当前农业生产各项工作&nbsp; 奋力夺取全年粮食和农业丰收'><span class="sj_gztzle">农业农村部召开全国“三秋”农业生产工作视频会议强调 全力以赴抓好当前农业生产各项工作 奋力夺取全年...</span><span class="sj_gztzri">2026-09-27</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202609/t20260916_6487732.htm" target="_blank" title='农业农村部种植业管理司关于征求互联网经营农药负面清单意见的函农农（农药）〔2026〕51号'><span class="sj_gztzle">农业农村部种植业管理司关于征求互联网经营农药负面清单意见的函</span><span class="sj_gztzri">2026-09-16</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202609/t20260904_6487325.htm" target="_blank" title=' 农药登记试验单位信息变更2026年第6期'><span class="sj_gztzle">农药登记试验单位信息变更    2026年第6期</span><span class="sj_gztzri">2026-09-04</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202608/t20260830_6487134.htm" target="_blank" title='农业农村部召开树立和践行正确政绩观学习教育总结会议'><span class="sj_gztzle">农业农村部召开树立和践行正确政绩观学习教育总结会议</span><span class="sj_gztzri">2026-08-30</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202608/t20260819_6486778.htm" target="_blank" title='农药登记试验单位信息变更2026年第5期'><span class="sj_gztzle">农药登记试验单位信息变更    2026年第5期</span><span class="sj_gztzri">2026-08-19</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202608/t20260811_6486581.htm" target="_blank" title='山海携手   双向奔赴    东西部协作30年交出亮眼成绩单'><span class="sj_gztzle">山海携手   双向奔赴    东西部协作30年交出亮眼成绩单</span><span class="sj_gztzri">2026-08-11</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260731_6486378.htm" target="_blank" title='农业农村部种植业管理司关于征求《农药登记资料要求》修改意见的通知'><span class="sj_gztzle">农业农村部种植业管理司关于征求《农药登记资料要求》修改意见的通知</span><span class="sj_gztzri">2026-07-31</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260729_6486304.htm" target="_blank" title='农药登记信息2026年第12期'><span class="sj_gztzle">农药登记信息    2026年第12期</span><span class="sj_gztzri">2026-07-29</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260729_6486303.htm" target="_blank" title='农药登记信息2026年第11期'><span class="sj_gztzle">农药登记信息    2026年第11期</span><span class="sj_gztzri">2026-07-29</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260729_6486302.htm" target="_blank" title='农药登记信息2026年第10期'><span class="sj_gztzle">农药登记信息    2026年第10期</span><span class="sj_gztzri">2026-07-29</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260729_6486301.htm" target="_blank" title='农药登记信息2026年第9期'><span class="sj_gztzle">农药登记信息    2026年第9期</span><span class="sj_gztzri">2026-07-29</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260727_6486223.htm" target="_blank" title='全国农业植物检疫性有害生物分布行政区名录（截至2026年6月30日）'><span class="sj_gztzle">全国农业植物检疫性有害生物分布行政区名录（截至2026年6月30日）</span><span class="sj_gztzri">2026-07-27</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260721_6485939.htm" target="_blank" title='陕西夏粮总产单产均创新高'><span class="sj_gztzle">陕西夏粮总产单产均创新高</span><span class="sj_gztzri">2026-07-21</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202607/t20260709_6485673.htm" target="_blank" title='浙江多举措助力夏粮颗粒归仓'><span class="sj_gztzle">浙江多举措助力夏粮颗粒归仓</span><span class="sj_gztzri">2026-07-09</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260629_6485372.htm" target="_blank" title='农业农村部党组召开会议强调深入学习贯彻习近平总书记重要讲话精神&nbsp; 扎实有力推动农业农村现代化'><span class="sj_gztzle">农业农村部党组召开会议强调     深入学习贯彻习近平总书记重要讲话精神 扎实有力推动农业农村现代化</span><span class="sj_gztzri">2026-06-29</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260618_6485132.htm" target="_blank" title='农药登记试验单位信息变更2026年第4期'><span class="sj_gztzle">农药登记试验单位信息变更    2026年第4期</span><span class="sj_gztzri">2026-06-18</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260611_6484940.htm" target="_blank" title='肥料登记评审议定事项（2026年第1期）'><span class="sj_gztzle">肥料登记评审议定事项    （2026年第1期）</span><span class="sj_gztzri">2026-06-11</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260604_6484759.htm" target="_blank" title='农药登记信息2026年第9期'><span class="sj_gztzle">农药登记信息    2026年第9期</span><span class="sj_gztzri">2026-06-04</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260604_6484757.htm" target="_blank" title='农药登记信息2026年第7期'><span class="sj_gztzle">农药登记信息    2026年第7期</span><span class="sj_gztzri">2026-06-04</span></a></li>
+							
+                            
+							
+                            
+							
+							
+							<li ><a href="./202606/t20260604_6484756.htm" target="_blank" title='农药登记信息2026年第5期'><span class="sj_gztzle">农药登记信息    2026年第5期</span><span class="sj_gztzri">2026-06-04</span></a></li>
+							
+                            
+							
+                            
+							
+						</ul>
+					</div>
+
+					<div class="badoo1">
+			            
+                        <div class="badoo1_nr1">
+				            <div class="badoo1_nr2">
+							   
+<script language="javascript" type="text/javascript">
+var currentPage = 0;//所在页从0开始
+var prevPage = currentPage-1//上一页
+var nextPage = currentPage+1//下一页
+var countPage = 25//共多少页
+
+//document.write("共"+countPage+"页&nbsp;&nbsp;");
+//设置上一页代码
+if(countPage>1&&currentPage!=0&&currentPage!=1)
+    document.write("<a  target=\"_self\" href=\"index.htm\">首页</a><a target=\"_self\" href=\"index"+"_" + prevPage + "."+"htm\"><span class=\" disable\">上一页</span></a>");
+else if(countPage>1&&currentPage!=0&&currentPage==1)
+    document.write("<a target=\"_self\" href=\"index.htm\">首页</a><a target=\"_self\" href=\"index.htm\"><span class=\"disable\">上一页</span></a>");
+else
+    document.write("<a>首页</a><span class=\"disabled\">上一页</span>");
+    
+//循环
+var num =4;
+for(var i=0+(currentPage-1-(currentPage-1)%num) ; i<=(num+(currentPage-1-(currentPage-1)%num))&&(i<countPage) ; i++){
+    if(currentPage==i)
+        document.write("<span class=\"current\">"+(i+1)+"</span>");
+    else if(i==0){
+        document.write("<a target=\"_self\" href=\"index.htm\"><span class=\"curren\">"+1+"</span></a>");
+    }else 
+        document.write("<a target=\"_self\" href=\"index"+"_" + i + "."+"htm\"><span class=\"curren\">"+(i+1)+"</span></a>");
+}
+
+//设置下一页代码 
+if(countPage>1&&currentPage!=(countPage-1))
+    document.write("<a target=\"_self\" href=\"index"+"_" + nextPage + "."+"htm\">下一页</a><a target=\"_self\" href=\"index_" + (countPage-1) + ".htm\">尾页</a>");
+else
+    document.write("<a>下一页</a><a>尾页</a>");  
+//跳转页面
+document.write('<div class="badoo1_txt">跳</div><input type="text" id="num" value='+(currentPage+1)+' style="width:30px;text-align:center;" /><div class="badoo1_txt">\/25页</div>'+'<input type="submit" value="&nbsp;Go&nbsp;" onClick="javascript:toPage()" /></font>');
+
+                     
+function toPage(){
+    var _num = document.getElementById("num").value;
+    var str = "index"+"_"+(_num-1)+"."+"htm";
+    var url = location.href.substring(0,location.href.lastIndexOf("/")+1);
+    if(_num<=1||_num==null)
+        location.href = url+"index"+"."+"htm";
+    else if(_num>countPage)
+        alert("本频道最多"+countPage+"页");
+    else
+        location.href = url+str;
+}
+
+
+</script>
+<div style="clear:both;"></div>
+							</div>
+						</div>
+					</div>
+					<div class="sj_con_more99"><a id="anniu" href="javascript:void(0);" onclick="loadMore()" >查看更多</a></div>
+
+
+				</div>
+			</div>
+			
+
+			
+			
+			
+			
+		</div>
+		<!--  -->
+		
+            <div class="footer">
+			<div class="main footer-box">
+				<ul> 
+					<li class="gov-link gov-jgzz"> <a>机关子站<img src="/images/gov-links-arrow-icon1_03.png" /></a></li>
+					<li class="gov-link gov-zsdwwz"> <a>直属单位网站<img src="/images/gov-links-arrow-icon1_03.png" /></a></li>
+					<li class="gov-link-2"> <a href="https://www.gov.cn/"> <img src="/images/gov-links-pic_1_03.png" /></a></li>
+					
+					<li class="gov-link-1 gov-gwy"><a>国务院各部门网站<img src="/images/gov-links-arrow-icon1_03.png" /></a> </li>
+					<li class="gov-link-1 gov-df"><a>地方农业管理部门网站<img src="/images/gov-links-arrow-icon1_03.png" /></a></li>
+				</ul>
+				<div class="gov-list-box  none" id="gov-jgzz">
+					<div class="gov-list ">
+						<ol>
+                            
+							<li><a href='https://bgt.moa.gov.cn' title='办公厅（对台湾农业事务办公室）'>
+							办公厅（对台湾农业事务办公室）</a></li>
+							
+							<li><a href='https://rss.moa.gov.cn' title='人事司（党组巡视工作领导小组办公室）'>
+							人事司（党组巡视工作领导小组办公室）</a></li>
+							
+							<li><a href='https://fgs.moa.gov.cn' title='法规司'>
+							法规司</a></li>
+							
+							<li><a href='https://zcggs.moa.gov.cn' title='政策与改革司'>
+							政策与改革司</a></li>
+							
+							<li><a href='https://jhs.moa.gov.cn' title='发展规划司'>
+							发展规划司</a></li>
+							
+							<li><a href='https://jcs.moa.gov.cn' title='计划财务司'>
+							计划财务司</a></li>
+							
+							<li><a href='https://zzys.moa.gov.cn' title='种植业管理司（农药管理司）'>
+							种植业管理司（农药管理司）</a></li>
+							
+							<li><a href='https://xmsyj.moa.gov.cn' title='畜牧兽医局'>
+							畜牧兽医局</a></li>
+							
+							<li><a href='https://yyj.moa.gov.cn' title='渔业渔政管理局'>
+							渔业渔政管理局</a></li>
+							
+							<li><a href='https://xccys.moa.gov.cn/' title='乡村产业发展司（农产品加工指导司）'>
+							乡村产业发展司（农产品加工指导司）</a></li>
+							
+							<li><a href='javascript:void(0)' title='乡村建设促进司'>
+							乡村建设促进司</a></li>
+							
+							<li><a href='https://shsys.moa.gov.cn/' title='农村社会事业促进司'>
+							农村社会事业促进司</a></li>
+							
+							<li><a href='https://hzjjs.moa.gov.cn' title='农村合作经济指导司'>
+							农村合作经济指导司</a></li>
+							
+							<li><a href='https://bfs.moa.gov.cn/' title='帮扶司'>
+							帮扶司</a></li>
+							
+							<li><a href='https://qys.moa.gov.cn' title='区域协作促进司（革命老区工作办公室）'>
+							区域协作促进司（革命老区工作办公室）</a></li>
+							
+							<li><a href='https://jdjcs.moa.gov.cn/' title='监督检查司'>
+							监督检查司</a></li>
+							
+							<li><a href='https://scs.moa.gov.cn' title='市场与信息化司'>
+							市场与信息化司</a></li>
+							
+							<li><a href='https://gjs.moa.gov.cn' title='国际合作司'>
+							国际合作司</a></li>
+							
+							<li><a href='https://kjs.moa.gov.cn' title='科学技术司（农业转基因生物安全管理办公室）'>
+							科学技术司（农业转基因生物安全管理办公室）</a></li>
+							
+							<li><a href='https://jgs.moa.gov.cn' title='农产品质量安全监管司'>
+							农产品质量安全监管司</a></li>
+							
+							<li><a href='https://nkj.moa.gov.cn/' title='农垦局'>
+							农垦局</a></li>
+							
+							<li><a href='https://zys.moa.gov.cn' title='种业管理司'>
+							种业管理司</a></li>
+							
+							<li><a href='https://njhs.moa.gov.cn' title='农业机械化管理司'>
+							农业机械化管理司</a></li>
+							
+							<li><a href='https://ntjss.moa.gov.cn/' title='农田建设管理司'>
+							农田建设管理司</a></li>
+							
+							<li><a href='https://dangwei.moa.gov.cn' title='机关党委'>
+							机关党委</a></li>
+							
+							<li><a href='https://ltxgbj.moa.gov.cn' title='离退休干部局'>
+							离退休干部局</a></li>
+							
+							<li><a href='https://cjyzbgs.moa.gov.cn' title='长江流域渔政监督管理办公室'>
+							长江流域渔政监督管理办公室</a></li>
+							
+						</ol>	
+					</div>
+				</div>
+				<div class="gov-list-box  none" id="gov-zsdwwz">
+					<div class="gov-list">
+						<ol>
+                            
+							<li><a href="http://www.jgfwj.agri.cn/" title='农业农村部机关服务中心( 农业农村部机关服务局 )'>
+							农业农村部机关服务中心( 农业农村部机关服务局 )</a></li>
+							
+							<li><a href="https://www.caas.cn/" title='中国农业科学院'>
+							中国农业科学院</a></li>
+							
+							<li><a href="https://www.cafs.ac.cn/" title='中国水产科学研究院'>
+							中国水产科学研究院</a></li>
+							
+							<li><a href="https://www.catas.cn/" title='中国热带农业科学院'>
+							中国热带农业科学院</a></li>
+							
+							<li><a href="http://www.ciae.com.cn/" title='全国农业展览馆（中国农业博物馆）'>
+							全国农业展览馆（中国农业博物馆）</a></li>
+							
+							<li><a href="http://www.ntv.cn/" title='中国农业电影电视中心'>
+							中国农业电影电视中心</a></li>
+							
+							<li><a href="https://www.farmer.com.cn/" title='农民日报社'>
+							农民日报社</a></li>
+							
+							<li><a href="http://www.ccap.com.cn/" title='中国农业出版社有限公司（农村读物出版社）'>
+							中国农业出版社有限公司（农村读物出版社）</a></li>
+							
+							<li><a href="https://www.crnews.net/" title='中国农村杂志社'>
+							中国农村杂志社</a></li>
+							
+							<li><a href="https://npecrr.agri.cn/" title='全国乡村振兴宣传教育中心'>
+							全国乡村振兴宣传教育中心</a></li>
+							
+							<li><a href="http://www.gbxy.agri.cn/" title='中央农业干部教育培训中心（农业农村部管理干部学院、中国共产党农业农村部党校）'>
+							中央农业干部教育培训中心（农业农村部管理干部学院、中国共产党农业农村部党校）</a></li>
+							
+							<li><a href="https://www.rlzy.moahr.cn" title='农业农村部人力资源开发中心、中国农学会'>
+							农业农村部人力资源开发中心、中国农学会</a></li>
+							
+							<li><a href="http://www.rcre.agri.cn/" title='农业农村部农村经济研究中心'>
+							农业农村部农村经济研究中心</a></li>
+							
+							<li><a href="https://www.agri.cn/" title='农业农村部信息中心'>
+							农业农村部信息中心</a></li>
+							
+							<li><a href="http://www.aqsc.agri.cn/" title='农业农村部农产品质量安全中心'>
+							农业农村部农产品质量安全中心</a></li>
+							
+							<li><a href="http://www.greenfood.agri.cn/" title='中国绿色食品发展中心'>
+							中国绿色食品发展中心</a></li>
+							
+							<li><a href="http://www.aape.org.cn" title='农业农村部规划设计研究院'>
+							农业农村部规划设计研究院</a></li>
+							
+							<li><a href="https://xczx.agri.cn" title='中国乡村振兴发展中心'>
+							中国乡村振兴发展中心</a></li>
+							
+							<li><a href="http://www.abdc.agri.cn/" title='农业农村部大数据发展中心'>
+							农业农村部大数据发展中心</a></li>
+							
+							<li><a href="http://www.gczx.agri.cn/" title='农业农村部工程建设服务中心'>
+							农业农村部工程建设服务中心</a></li>
+							
+							<li><a href="http://www.ckzx.agri.cn/" title='农业农村部财会服务中心、中华农业科教基金会'>
+							农业农村部财会服务中心、中华农业科教基金会</a></li>
+							
+							<li><a href="http://www.fecc.agri.cn/" title='农业农村部对外经济合作中心（中国-欧洲联盟农业技术中心）'>
+							农业农村部对外经济合作中心（中国-欧洲联盟农业技术中心）</a></li>
+							
+							<li><a href="http://www.mczx.agri.cn/" title='农业农村部农业贸易促进中心(中国国际贸易促进委员会农业行业分会、中国国际商会农业行业商会)'>
+							农业农村部农业贸易促进中心(中国国际贸易促进委员会农业行业分会、中国国际商会农业行业商会)</a></li>
+							
+							<li><a href="https://www.iprcc.org.cn/" title='中国国际减贫中心'>
+							中国国际减贫中心</a></li>
+							
+							<li><a href="http://www.cicos.agri.cn/" title='农业农村部国际交流服务中心'>
+							农业农村部国际交流服务中心</a></li>
+							
+							<li><a href="https://www.ngx.net.cn" title='中央农业广播电视学校(农业农村部农民科技教育培训中心)、中国农民体育协会'>
+							中央农业广播电视学校(农业农村部农民科技教育培训中心)、中国农民体育协会</a></li>
+							
+							<li><a href="https://www.nybkjfzzx.cn/" title='农业农村部科技发展中心'>
+							农业农村部科技发展中心</a></li>
+							
+							<li><a href="http://www.reea.agri.cn/" title='农业农村部农业生态与资源保护总站'>
+							农业农村部农业生态与资源保护总站</a></li>
+							
+							<li><a href="http://www.crtdc.org.cn/cms/web/index.html" title='中国农村技术开发中心'>
+							中国农村技术开发中心</a></li>
+							
+							<li><a href="http://www.natesc.org.cn/" title='全国农业技术推广服务中心'>
+							全国农业技术推广服务中心</a></li>
+							
+							<li><a href="http://www.chinapesticide.org.cn/" title='农业农村部农药检定所（国际食品法典农药残留委员会秘书处）'>
+							农业农村部农药检定所（国际食品法典农药残留委员会秘书处）</a></li>
+							
+							<li><a href="http://www.gdzl.agri.cn/" title='农业农村部耕地质量和农田工程监督保护中心'>
+							农业农村部耕地质量和农田工程监督保护中心</a></li>
+							
+							<li><a href="http://www.amic.agri.cn" title='农业农村部农业机械化总站'>
+							农业农村部农业机械化总站</a></li>
+							
+							<li><a href="https://www.nahs.org.cn/" title='全国畜牧总站'>
+							全国畜牧总站</a></li>
+							
+							<li><a href="http://www.cadc.net.cn" title='中国动物疫病预防控制中心（农业农村部屠宰技术中心）'>
+							中国动物疫病预防控制中心（农业农村部屠宰技术中心）</a></li>
+							
+							<li><a href="http://www.ivdc.org.cn/" title='中国兽医药品监察所（农业农村部兽药评审中心）'>
+							中国兽医药品监察所（农业农村部兽药评审中心）</a></li>
+							
+							<li><a href="http://www.cahec.cn/" title='中国动物卫生与流行病学中心'>
+							中国动物卫生与流行病学中心</a></li>
+							
+							<li><a href="http://www.farmchina.org.cn/" title='中国农垦经济发展中心（农业农村部南亚热带作物中心）'>
+							中国农垦经济发展中心（农业农村部南亚热带作物中心）</a></li>
+							
+							<li><a href="http://www.shsyzx.agri.cn/" title='农业农村部农村社会事业发展中心（农业农村部乡镇企业发展中心）'>
+							农业农村部农村社会事业发展中心（农业农村部乡镇企业发展中心）</a></li>
+							
+							<li><a href="javascript:void(0)" title='农业农村部乡村振兴监测中心'>
+							农业农村部乡村振兴监测中心</a></li>
+							
+							<li><a href="http://www.nftec.agri.cn/" title='全国水产技术推广总站、中国水产学会'>
+							全国水产技术推广总站、中国水产学会</a></li>
+							
+							<li><a href="http://www.yzbzzx.agri.cn/" title='农业农村部渔政保障中心'>
+							农业农村部渔政保障中心</a></li>
+							
+						</ol>
+					</div>
+				</div>
+				<div class="gov-list-box none" id="gov-gwy">
+					<div class="gov-list ">
+						<dl>
+                                                      
+							<dd><a href='https://www.fmprc.gov.cn/web/' title='外交部' target="_blank">外交部</a></dd>
+							
+							<dd><a href='http://www.mod.gov.cn/' title='国防部' target="_blank">国防部</a></dd>
+							
+							<dd><a href='https://www.ndrc.gov.cn' title='国家发展和改革委员会' target="_blank">国家发展和改革委员会</a></dd>
+							
+							<dd><a href='http://www.moe.gov.cn' title='教育部' target="_blank">教育部</a></dd>
+							
+							<dd><a href='https://www.most.gov.cn' title='科学技术部' target="_blank">科学技术部</a></dd>
+							
+							<dd><a href='https://www.miit.gov.cn/' title='工业和信息化部' target="_blank">工业和信息化部</a></dd>
+							
+							<dd><a href='https://www.neac.gov.cn/' title='国家民族事务委员会' target="_blank">国家民族事务委员会</a></dd>
+							
+							<dd><a href='https://www.mps.gov.cn' title='公安部' target="_blank">公安部</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家安全部' target="_blank">国家安全部</a></dd>
+							
+							<dd><a href='https://www.mca.gov.cn' title='民政部' target="_blank">民政部</a></dd>
+							
+							<dd><a href='http://www.moj.gov.cn/' title='司法部' target="_blank">司法部</a></dd>
+							
+							<dd><a href='http://www.mof.gov.cn' title='财政部' target="_blank">财政部</a></dd>
+							
+							<dd><a href='http://www.mohrss.gov.cn/' title='人力资源和社会保障部' target="_blank">人力资源和社会保障部</a></dd>
+							
+							<dd><a href='https://www.mnr.gov.cn/' title='自然资源部' target="_blank">自然资源部</a></dd>
+							
+							<dd><a href='https://www.mee.gov.cn/' title='生态环境部' target="_blank">生态环境部</a></dd>
+							
+							<dd><a href='https://www.mohurd.gov.cn/' title='住房和城乡建设部' target="_blank">住房和城乡建设部</a></dd>
+							
+							<dd><a href='https://www.mot.gov.cn/' title='交通运输部' target="_blank">交通运输部</a></dd>
+							
+							<dd><a href='http://www.mwr.gov.cn/' title='水利部' target="_blank">水利部</a></dd>
+							
+							<dd><a href='http://www.moa.gov.cn' title='农业农村部' target="_blank">农业农村部</a></dd>
+							
+							<dd><a href='http://www.mofcom.gov.cn/' title='商务部' target="_blank">商务部</a></dd>
+							
+							<dd><a href='https://www.mct.gov.cn/' title='文化和旅游部' target="_blank">文化和旅游部</a></dd>
+							
+							<dd><a href='http://www.nhc.gov.cn/' title='国家卫生健康委员会' target="_blank">国家卫生健康委员会</a></dd>
+							
+							<dd><a href='http://www.mva.gov.cn/' title='退役军人事务部' target="_blank">退役军人事务部</a></dd>
+							
+							<dd><a href='https://www.mem.gov.cn/' title='应急管理部' target="_blank">应急管理部</a></dd>
+							
+							<dd><a href='http://www.pbc.gov.cn/' title='中国人民银行' target="_blank">中国人民银行</a></dd>
+							
+							<dd><a href='https://www.audit.gov.cn/' title='审计署' target="_blank">审计署</a></dd>
+							
+							<dd><a href='http://www.moe.gov.cn/jyb_sy/China_Language/' title='国家语言文字工作委员会' target="_blank">国家语言文字工作委员会</a></dd>
+							
+							<dd><a href='https://www.cnsa.gov.cn/' title='国家航天局' target="_blank">国家航天局</a></dd>
+							
+							<dd><a href='https://www.caea.gov.cn/' title='国家原子能机构' target="_blank">国家原子能机构</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家外国专家局' target="_blank">国家外国专家局</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家海洋局' target="_blank">国家海洋局</a></dd>
+							
+							<dd><a href='https://nnsa.mee.gov.cn/' title='国家核安全局' target="_blank">国家核安全局</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家乡村振兴局' target="_blank">国家乡村振兴局</a></dd>
+							
+							<dd><a href='http://www.sasac.gov.cn/' title='国务院国有资产监督管理委员会' target="_blank">国务院国有资产监督管理委员会</a></dd>
+							
+							<dd><a href='http://www.customs.gov.cn/' title='海关总署' target="_blank">海关总署</a></dd>
+							
+							<dd><a href='http://www.chinatax.gov.cn/' title='国家税务总局' target="_blank">国家税务总局</a></dd>
+							
+							<dd><a href='https://www.samr.gov.cn/' title='国家市场监督管理总局' target="_blank">国家市场监督管理总局</a></dd>
+							
+							<dd><a href='https://www.nfra.gov.cn/' title='国家金融监督管理总局' target="_blank">国家金融监督管理总局</a></dd>
+							
+							<dd><a href='http://www.csrc.gov.cn/' title='中国证券监督管理委员会' target="_blank">中国证券监督管理委员会</a></dd>
+							
+							<dd><a href='http://www.nrta.gov.cn/' title='国家广播电视总局' target="_blank">国家广播电视总局</a></dd>
+							
+							<dd><a href='https://www.sport.gov.cn/' title='国家体育总局' target="_blank">国家体育总局</a></dd>
+							
+							<dd><a href='https://www.gjxfj.gov.cn/gjxfj/index.htm' title='国家信访局' target="_blank">国家信访局</a></dd>
+							
+							<dd><a href='http://www.stats.gov.cn/' title='国家统计局' target="_blank">国家统计局</a></dd>
+							
+							<dd><a href='https://www.cnipa.gov.cn' title='国家知识产权局' target="_blank">国家知识产权局</a></dd>
+							
+							<dd><a href='http://www.cidca.gov.cn/' title='国家国际发展合作署' target="_blank">国家国际发展合作署</a></dd>
+							
+							<dd><a href='http://www.nhsa.gov.cn/' title='国家医疗保障局' target="_blank">国家医疗保障局</a></dd>
+							
+							<dd><a href='http://www.counsellor.gov.cn/' title='国务院参事室' target="_blank">国务院参事室</a></dd>
+							
+							<dd><a href='http://www.ggj.gov.cn/' title='国家机关事务管理局' target="_blank">国家机关事务管理局</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家反垄断局' target="_blank">国家反垄断局</a></dd>
+							
+							<dd><a href='http://www.cnca.gov.cn/' title='国家认证认可监督管理委员会' target="_blank">国家认证认可监督管理委员会</a></dd>
+							
+							<dd><a href='http://www.sac.gov.cn/' title='国家标准化管理委员会' target="_blank">国家标准化管理委员会</a></dd>
+							
+							<dd><a href='https://www.ncac.gov.cn/' title='国家新闻出版署（国家版权局）' target="_blank">国家新闻出版署（国家版权局）</a></dd>
+							
+							<dd><a href='https://www.sara.gov.cn/' title='国家宗教事务局' target="_blank">国家宗教事务局</a></dd>
+							
+							<dd><a href='https://www.gov.cn/guoqing/2018-06/22/content_5300522.htm' title='国务院研究室' target="_blank">国务院研究室</a></dd>
+							
+							<dd><a href='https://www.gqb.gov.cn/' title='国务院侨务办公室' target="_blank">国务院侨务办公室</a></dd>
+							
+							<dd><a href='https://www.hmo.gov.cn/' title='国务院港澳事务办公室' target="_blank">国务院港澳事务办公室</a></dd>
+							
+							<dd><a href='http://www.gwytb.gov.cn/' title='国务院台湾事务办公室' target="_blank">国务院台湾事务办公室</a></dd>
+							
+							<dd><a href='http://www.cac.gov.cn/' title='国家互联网信息办公室' target="_blank">国家互联网信息办公室</a></dd>
+							
+							<dd><a href='http://www.scio.gov.cn/index.htm' title='国务院新闻办公室' target="_blank">国务院新闻办公室</a></dd>
+							
+							<dd><a href='https://www.news.cn/xinhuashe/' title='新华通讯社' target="_blank">新华通讯社</a></dd>
+							
+							<dd><a href='https://www.cas.cn/' title='中国科学院' target="_blank">中国科学院</a></dd>
+							
+							<dd><a href='http://www.cass.cn/' title='中国社会科学院' target="_blank">中国社会科学院</a></dd>
+							
+							<dd><a href='https://www.cae.cn/' title='中国工程院' target="_blank">中国工程院</a></dd>
+							
+							<dd><a href='https://www.drc.gov.cn/default.aspx' title='国务院发展研究中心' target="_blank">国务院发展研究中心</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='中央广播电视总台' target="_blank">中央广播电视总台</a></dd>
+							
+							<dd><a href='https://www.cma.gov.cn/' title='中国气象局' target="_blank">中国气象局</a></dd>
+							
+							<dd><a href='https://www.ccps.gov.cn/' title='国家行政学院' target="_blank">国家行政学院</a></dd>
+							
+							<dd><a href='http://www.lswz.gov.cn/' title='国家粮食和物资储备局' target="_blank">国家粮食和物资储备局</a></dd>
+							
+							<dd><a href='http://www.nea.gov.cn/' title='国家能源局' target="_blank">国家能源局</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家数据局' target="_blank">国家数据局</a></dd>
+							
+							<dd><a href='https://www.sastind.gov.cn/' title='国家国防科技工业局' target="_blank">国家国防科技工业局</a></dd>
+							
+							<dd><a href='http://www.tobacco.gov.cn/gjyc/index.shtml' title='国家烟草专卖局' target="_blank">国家烟草专卖局</a></dd>
+							
+							<dd><a href='https://www.nia.gov.cn/' title='国家移民管理局' target="_blank">国家移民管理局</a></dd>
+							
+							<dd><a href='http://www.forestry.gov.cn/' title='国家林业和草原局' target="_blank">国家林业和草原局</a></dd>
+							
+							<dd><a href='http://www.nra.gov.cn/' title='国家铁路局' target="_blank">国家铁路局</a></dd>
+							
+							<dd><a href='http://www.caac.gov.cn/index.html' title='中国民用航空局' target="_blank">中国民用航空局</a></dd>
+							
+							<dd><a href='https://www.spb.gov.cn/' title='国家邮政局' target="_blank">国家邮政局</a></dd>
+							
+							<dd><a href='http://www.ncha.gov.cn/' title='国家文物局' target="_blank">国家文物局</a></dd>
+							
+							<dd><a href='http://www.natcm.gov.cn/' title='国家中医药管理局' target="_blank">国家中医药管理局</a></dd>
+							
+							<dd><a href='javascript:void(0)' title='国家疾病预防控制局' target="_blank">国家疾病预防控制局</a></dd>
+							
+							<dd><a href='https://www.chinamine-safety.gov.cn/' title='国家矿山安全监察局' target="_blank">国家矿山安全监察局</a></dd>
+							
+							<dd><a href='https://www.119.gov.cn/' title='国家消防救援局' target="_blank">国家消防救援局</a></dd>
+							
+							<dd><a href='http://www.safe.gov.cn/' title='国家外汇管理局' target="_blank">国家外汇管理局</a></dd>
+							
+							<dd><a href='https://www.nmpa.gov.cn/' title='国家药品监督管理局' target="_blank">国家药品监督管理局</a></dd>
+							
+						</dl>	
+					</div>
+				</div>
+				<div class="gov-list-box none" id="gov-df">
+					<div class="gov-list">
+						<dl>
+                                                          
+							<dd><a href='http://nyncj.beijing.gov.cn' title='北京农业农村局' target="_blank">北京农业农村局</a></dd>
+							
+							<dd><a href='http://nync.tj.gov.cn/' title='天津农业农村委' target="_blank">天津农业农村委</a></dd>
+							
+							<dd><a href='http://nync.hebei.gov.cn' title='河北农业农村厅' target="_blank">河北农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.shanxi.gov.cn/' title='山西农业农村厅' target="_blank">山西农业农村厅</a></dd>
+							
+							<dd><a href='http://nmt.nmg.gov.cn' title='内蒙古农牧厅' target="_blank">内蒙古农牧厅</a></dd>
+							
+							<dd><a href='http://nync.ln.gov.cn/' title='辽宁农业农村厅' target="_blank">辽宁农业农村厅</a></dd>
+							
+							<dd><a href='http://agri.jl.gov.cn' title='吉林农业农村厅' target="_blank">吉林农业农村厅</a></dd>
+							
+							<dd><a href='http://xmy.jl.gov.cn/' title='吉林畜牧业管理局' target="_blank">吉林畜牧业管理局</a></dd>
+							
+							<dd><a href='http://nynct.hlj.gov.cn' title='黑龙江农业农村厅' target="_blank">黑龙江农业农村厅</a></dd>
+							
+							<dd><a href='https://nyncw.sh.gov.cn' title='上海农业农村委' target="_blank">上海农业农村委</a></dd>
+							
+							<dd><a href='http://nynct.jiangsu.gov.cn/' title='江苏农业农村厅' target="_blank">江苏农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.zj.gov.cn/' title='浙江农业农村厅' target="_blank">浙江农业农村厅</a></dd>
+							
+							<dd><a href='http://nync.ah.gov.cn/' title='安徽农业农村厅' target="_blank">安徽农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.fujian.gov.cn/' title='福建农业农村厅' target="_blank">福建农业农村厅</a></dd>
+							
+							<dd><a href='http://nync.jiangxi.gov.cn/' title='江西农业农村厅' target="_blank">江西农业农村厅</a></dd>
+							
+							<dd><a href='http://nync.shandong.gov.cn/' title='山东农业农村厅' target="_blank">山东农业农村厅</a></dd>
+							
+							<dd><a href='https://nynct.henan.gov.cn/' title='河南农业农村厅' target="_blank">河南农业农村厅</a></dd>
+							
+							<dd><a href='http://nyt.hubei.gov.cn/' title='湖北农业农村厅' target="_blank">湖北农业农村厅</a></dd>
+							
+							<dd><a href='http://agri.hunan.gov.cn/?tdsourcetag=s_pcqq_aiomsg' title='湖南农业农村厅' target="_blank">湖南农业农村厅</a></dd>
+							
+							<dd><a href='http://dara.gd.gov.cn/' title='广东农业农村厅' target="_blank">广东农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.gxzf.gov.cn/' title='广西农业农村厅' target="_blank">广西农业农村厅</a></dd>
+							
+							<dd><a href='http://agri.hainan.gov.cn/hnsnyt/' title='海南农业农村厅' target="_blank">海南农业农村厅</a></dd>
+							
+							<dd><a href='http://nyncw.cq.gov.cn/' title='重庆农业农村委' target="_blank">重庆农业农村委</a></dd>
+							
+							<dd><a href='http://nynct.sc.gov.cn/' title='四川农业农村厅' target="_blank">四川农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.guizhou.gov.cn/' title='贵州农业农村厅' target="_blank">贵州农业农村厅</a></dd>
+							
+							<dd><a href='https://nync.yn.gov.cn/' title='云南农业农村厅' target="_blank">云南农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.xizang.gov.cn' title='西藏农业农村厅' target="_blank">西藏农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.shaanxi.gov.cn/' title='陕西农业农村厅' target="_blank">陕西农业农村厅</a></dd>
+							
+							<dd><a href='http://nync.gansu.gov.cn' title='甘肃农业农村厅' target="_blank">甘肃农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.qinghai.gov.cn/' title='青海农业农村厅' target="_blank">青海农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.nx.gov.cn/' title='宁夏农业农村厅' target="_blank">宁夏农业农村厅</a></dd>
+							
+							<dd><a href='http://nynct.xinjiang.gov.cn/' title='新疆农业农村厅' target="_blank">新疆农业农村厅</a></dd>
+							
+							<dd><a href='http://nyj.xjbt.gov.cn/' title='新疆兵团农业农村局' target="_blank">新疆兵团农业农村局</a></dd>
+							
+						</dl>
+					</div>
+				</div>
+			</div>
+			<div class="footer-line"></div>
+
+			<div class="footer_yidong">
+				<p>主办单位：中华人民共和国农业农村部</p>
+				<p>承办单位：农业农村部信息中心</p>
+				<p>网站识别码bm21000007&nbsp;
+<a target="_blank" href="https://beian.miit.gov.cn/">京ICP备05039419号-2</a></p>
+				<div class="moban_sj_jgwab">
+			        <a target="_blank" href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010502037559" style=""><img src="/images/bajgwa_sj.png" /><p style="">京公网安备 11010502037559号</p></a>
+	            </div>
+	            
+			</div>
+			
+			<div class="footer-copy main">
+				<a class="footer-left">
+					<script type="text/javascript">document.write(unescape("%3Cspan id='_ideConac' %3E%3C/span%3E%3Cscript   src='https://dcs.conac.cn/js/33/000/0000/60427385/CA330000000604273850002.js' type='text/javascript'%3E%3C/script%3E"));</script>
+				</a>
+				<div class="footer-middle">
+					<ul>
+						<li><a href="https://www.moa.gov.cn/sy_23468/homeinfo/gybz/">关于我们</a></li>
+						<li>|</li>
+						<li><a href="https://www.moa.gov.cn/sy_23468/homeinfo/wzsm/">网站声明</a></li>
+						<li>|</li>
+						<li><a href="https://www.moa.gov.cn/sy_23468/homeinfo/wzdt/">网站地图</a></li>
+						<li>|</li>
+						<li class="marginRight"><a href="https://www.moa.gov.cn/sy_23468/homeinfo/lxwm/">联系我们</a></li>
+						<li>|</li>
+						<li class="marginRight"><a href="https://report.moa.gov.cn/report/index.html" target="_blank">访问分析</a></li>
+					</ul>
+					<p>主办单位：中华人民共和国农业农村部&nbsp;&nbsp;&nbsp;&nbsp; 承办单位：<a href="https://www.agri.cn/" target="_blank">农业农村部信息中心</a></p>
+					<p>网站识别码bm21000007&nbsp;&nbsp;&nbsp;&nbsp;
+<a target="_blank" href="https://beian.miit.gov.cn/">京ICP备05039419号-2</a>&nbsp;&nbsp;&nbsp;&nbsp;最佳浏览器模式：1024*768分辨率</p>
+					<div class="moban_sj_jgwab">
+				         <a target="_blank" href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010502037559" style="display:inline-block;text-decoration:none;height:20px;line-height:20px;"><img src="/images/bajgwa_sj.png" border="0" /><p style="float:left;height:20px;line-height:20px;margin: 0px 0px 0px 5px;">京公网安备 11010502037559号</p></a>
+		            </div>
+					<p>网站保留所有权，未经允许不得复制镜像</p>
+				</div>
+				<a class="footer-right">
+					<script type="text/javascript">document.write(unescape("%3Cspan id='_jiucuo_' sitecode='bm21000007' %3E%3C/span%3E%3Cscript   src='https://zfwzgl.www.gov.cn/exposure/jiucuo.js' type='text/javascript'%3E%3C/script%3E"));</script>
+				</a>
+			</div>
+		</div>
+
+
+
+
+<!--离开提示-->
+<style>
+#pop{display:none;}
+#pop_goNotGov_bg2{position:fixed;top:0;left:0;width:100%; height:100%; z-index:300; background-color:#cccccc;  filter:alpha(Opacity=50);-moz-opacity:0.5;opacity: 0.5;}
+#pop_goNotGov{position:fixed; width:100%; top:150px; z-index:9999;}
+.pop_main{width:360px;margin:0 auto;}
+.pop_main .pop_tit{height:25px;line-height:25px;background:#c40001;color:#ffff00;font-weight:bold;font-size:14px;padding:0 0 0 10px;}
+.pop_main .pop_tit img{float:right;cursor:pointer;}
+.pop_main .pop_txt{font-size:16px;/*line-height:40px;*/background:url(https://www.moa.gov.cn/images/pop_ico.png) no-repeat 15px center;font-weight:bold;padding:0 0 0 55px;}
+.pop_main .pop_con{height:120px;background:url(https://www.moa.gov.cn/images/body_goNotGov.jpg) no-repeat;padding:55px 0 0;}
+.pop_main .pop_btn{text-align:center;padding:35px 0 0;overflow:hidden;}
+.pop_main .pop_btn span{display:inline-block;width:60px;height:30px;line-height:30px;text-align:center;background:#c40001;border:1px solid #7d0000;color:#fff;font-size:14px;margin:0 20px;cursor:pointer;}
+.pop_main .pop_btn span:hover{background:#ffff00;color:#000;}
+</style>
+
+<div id="pop" style="display:none">
+    <div id="pop_goNotGov_bg2" ></div>
+	<div id="pop_goNotGov">
+        <div class="pop_main">
+            <div class="pop_tit"><img src="/images/X_goNotGov.jpg" onclick="hide('pop');" />提示信息</div>
+            <div class="pop_con">
+                <div class="pop_txt">您即将离开农业农村部门户网站，是否继续？</div>
+                <div class="pop_btn"><span onclick="go()">确&nbsp;定</span><span onclick="hide('pop')">取&nbsp;消</span></div>
+            </div>
+        </div>
+	</div>
+</div>
+
+<script>
+
+var href;
+//window.onload = function(){
+$(function(){
+//debugger
+    setTimeout(function(){ //判断提示ifa()
+            ifa()
+      },3000)
+//}
+}) 
+
+
+
+function ifa(){ 
+	bindOnclick(document);
+
+	var fs= document.getElementsByTagName("iframe")
+	for(var j=0;j<fs.length ;j++ ){
+		var doc= fs[j].contentWindow.document;
+		bindOnclick(doc);
+
+	}
+	
+	function bindOnclick(doc){
+		var as= doc.getElementsByTagName("a"); 
+		for(var i=0;i<as.length;i++){ 
+			as[i].onclick=function(){ 
+				if(this.href.match(/^http.*$/)){ 
+				//	if(this.href.indexOf('.gov.')==-1&&this.href.indexOf('http://202.127.45')==-1&&this.href.indexOf('http://pfsc.agri.cn')==-1){ 
+					if(this.href.indexOf('.moa.gov.')==-1&&this.href.indexOf('agri.gov.cn')==-1&&this.href.indexOf('www.gov.cn')==-1&&this.href.indexOf('www.farmer.com.cn/xbpd/')==-1){ 
+                                            //国务院信息和时政要闻及农业部邮箱不提示
+						href=this.href; 
+						show('pop'); 
+						return false; 
+					} 
+				return true; 
+				} 
+			} 
+		} 
+	}
+	function ifPop(){
+	}
+
+} 
+function show(pop){ 
+	var o = document.getElementById(pop); 
+	o.style.display="block";
+	//o.setAttribute("style","display:block"); 
+	return false; 
+} 
+function go(){ 
+	window.open(href); 
+	//window.location.href=href; 
+	document.getElementById("pop").style.display="none";
+} 
+function hide(pop){ 
+	var o = document.getElementById(pop); 
+	document.getElementById("pop").style.display="none";
+	//o.setAttribute("style","display:none"); 
+	return false; 
+} 
+//$(function(){
+//        var bodyH = $('body').height();
+//	$('#pop_goNotGov_bg2').height(bodyH);
+//})	
+
+</script>
+<!--离开提示end-->
+<script src="https://www.moa.gov.cn/images/esdToolsInit.js" type="text/javascript"></script>
+
+
+	</body>
+	<script>
+		 $('.public-mulu li.btn').mouseenter(function(){
+		 	 $(this).addClass('btn-active').siblings('.btn').removeClass('btn-active')
+		 	 
+		 }).mouseleave(function(){
+		 	 $(this).removeClass('btn-active')
+		 })
+		 
+		 $('.main-zzmulu').mouseenter(function(){
+		 	 $(this).addClass('btn-active') 
+		 }).mouseleave(function(){
+		 	 $(this).removeClass('btn-active')
+		 })
+		 
+		 $('.zwffUl li:odd').css('float','right')
+
+		 jQuery(".txtMarquee-left").slide({mainCell:".bd ul",autoPlay:true,effect:"leftMarquee",interTime:30,trigger:"click"});
+	</script>
+    
+<script>
+$(function(){
+	$('.sj_er_kuang .sj_e_tonzhi_list li:nth-child(5n)').css('margin-bottom','30px')
+})
+
+</script>
+<!--移动端加载更多-->
+<script>
+
+ var flagPage = 1;
+ if(countPage>1 && !isPC)
+ {
+  //$(".mobile_more").show();
+  $("#anniu").click(function(){
+   $.ajax({
+    type : "post",
+    dataType: "html",
+    url : "more_"+flagPage+".htm",
+    success : function(result) {
+     $("#div").append(result);
+    $('sun').eq(-1).slideDown("slow"); 
+    },
+    error : function(e){
+     alert("数据请求失败！");
+                                  $("#anniu").hide();
+    }
+   });
+   
+   flagPage++;
+   
+   if(flagPage==countPage)
+    $("#anniu").hide();
+  });
+ }else {
+         $("#anniu").hide();
+        }
+
+</script>
+
+</html>

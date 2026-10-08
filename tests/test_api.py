@@ -70,6 +70,116 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("raw_text", detail.json()["data"])
 
+    def test_keyword_search_filters_and_scores(self) -> None:
+        # 关键词必须真正缩小结果集：从前只要求命中评分，搜索页拿到的是全库。
+        hit = self.client.get("/api/announcements", params={"keyword": "租房"}).json()["data"]
+        self.assertEqual(hit["total"], 1)
+        item = hit["items"][0]
+        self.assertIn("租房", item["title"])
+        self.assertGreaterEqual(item["match_score"], 10)
+        self.assertTrue(any("关键词匹配" in reason for reason in item["match_reasons"]))
+
+        miss = self.client.get("/api/announcements", params={"keyword": "zzzz-not-exist"}).json()["data"]
+        self.assertEqual(miss["total"], 0)
+
+        # 空白分词：任一词命中即保留
+        either = self.client.get("/api/announcements", params={"keyword": "租房 招聘"}).json()["data"]
+        self.assertEqual(either["total"], 2)
+
+    def test_target_group_filters_the_result_set(self) -> None:
+        # 人群/行业原来只进评分 profile，检索页勾了等于没勾
+        group = self.client.get("/api/announcements", params={"target_group": "企业"}).json()["data"]
+        self.assertEqual(group["total"], 1)
+        self.assertEqual(group["items"][0]["target_group"], "企业")
+        miss = self.client.get("/api/announcements", params={"target_group": "不存在的人群"}).json()["data"]
+        self.assertEqual(miss["total"], 0)
+
+    def test_category_l2_filters_by_industry(self) -> None:
+        # 检索页「行业门类」筛的是 category_l2 —— 全库 target_group/target_industry 都是空的
+        hit = self.client.get("/api/announcements", params={"category_l2": "人才补贴"}).json()["data"]
+        self.assertEqual(hit["total"], 1)
+        self.assertEqual(hit["items"][0]["category_l2"], "人才补贴")
+        miss = self.client.get("/api/announcements", params={"category_l2": "不存在的门类"}).json()["data"]
+        self.assertEqual(miss["total"], 0)
+
+    def test_stats_aggregate_follows_the_same_filters(self) -> None:
+        # 检索页图表要的是全量汇总 —— 只翻一页画不出分布，且必须和列表同一套筛选
+        data = self.client.get("/api/announcements/stats").json()["data"]
+        self.assertEqual(data["total"], 2)
+        self.assertEqual({row["name"] for row in data["category_l1"]}, {"行业补贴", "招聘信息"})
+        self.assertEqual({row["name"] for row in data["province"]}, {"四川省"})
+        self.assertEqual(data["month"], [{"name": "2026-02", "value": 2}])
+
+        filtered = self.client.get("/api/announcements/stats", params={"category": "行业补贴"}).json()["data"]
+        self.assertEqual(filtered["total"], 1)
+
+        keyword = self.client.get("/api/announcements/stats", params={"keyword": "租房"}).json()["data"]
+        self.assertEqual(keyword["total"], 1)
+        self.assertEqual(keyword["gov_level"], [{"name": "省级", "value": 1}])
+
+    def test_list_paginates_in_sql(self) -> None:
+        # 无关键词路径走 COUNT+LIMIT/OFFSET —— 翻页不能全库物化
+        first = self.client.get("/api/announcements", params={"page": 1, "page_size": 1}).json()["data"]
+        second = self.client.get("/api/announcements", params={"page": 2, "page_size": 1}).json()["data"]
+        self.assertEqual(first["total"], 2)
+        self.assertEqual(second["total"], 2)
+        self.assertNotEqual(first["items"][0]["id"], second["items"][0]["id"])
+        self.assertGreaterEqual(first["items"][0]["publish_date"], second["items"][0]["publish_date"])
+        beyond = self.client.get("/api/announcements", params={"page": 99, "page_size": 1}).json()["data"]
+        self.assertEqual(beyond["items"], [])
+        self.assertEqual(beyond["total"], 2)
+
+    def test_export_returns_csv_for_the_current_filters(self) -> None:
+        # 导出必须和列表同一套筛选、全量不分页；无 BOM 的 UTF-8 CSV 在 Excel 里是乱码
+        response = self.client.get("/api/announcements/export")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.headers["content-type"].startswith("text/csv"))
+        self.assertIn("attachment", response.headers["content-disposition"])
+        lines = response.text.splitlines()
+        self.assertTrue(lines[0].startswith("\ufeff"), "UTF-8 CSV 要带 BOM")
+        self.assertIn("标题", lines[0])
+        self.assertEqual(len(lines), 3)  # 表头 + 2 条
+
+        # /export 声明在 /{announcement_id} 之前：筛选口径与列表一致
+        filtered = self.client.get("/api/announcements/export", params={"category": "行业补贴"})
+        self.assertEqual(len(filtered.text.splitlines()), 2)
+
+    def test_stats_cache_serves_the_same_window(self) -> None:
+        from api.services import announcement_service as svc
+
+        svc._stats_cache.clear()
+        original_ttl = svc._STATS_TTL
+        svc._STATS_TTL = 3600.0
+        try:
+            first = self.client.get("/api/announcements/stats").json()["data"]
+            self.assertEqual(first["total"], 2)
+
+            self.database.upsert_announcements(
+                [
+                    {
+                        "source_id": "sc_cache",
+                        "source_url": "https://example.gov.cn/notice/3",
+                        "title": "缓存窗口内新增的公告",
+                        "publish_date": "2026-02-21",
+                        "content": "用于验证 TTL 窗口内不重算",
+                        "issuing_body": "某省厅",
+                        "gov_level": "省级",
+                        "region_province": "四川省",
+                        "category_l1": "政策发布",
+                    }
+                ]
+            )
+
+            cached = self.client.get("/api/announcements/stats").json()["data"]
+            self.assertEqual(cached["total"], 2, "TTL 窗口内应复用缓存，而不是重算")
+
+            svc._STATS_TTL = 0.0
+            fresh = self.client.get("/api/announcements/stats").json()["data"]
+            self.assertEqual(fresh["total"], 3, "关闭缓存后应看到新数据")
+        finally:
+            svc._STATS_TTL = original_ttl
+            svc._stats_cache.clear()
+
     def test_categories_and_regions(self) -> None:
         categories = self.client.get("/api/categories").json()["data"]
         self.assertIn("行业补贴", categories["l1"])

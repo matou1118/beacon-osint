@@ -58,6 +58,23 @@ def _text(record: Mapping[str, Any]) -> str:
     return " ".join(str(record.get(key) or "") for key in ("title", "category_l1", "category_l2", "target_industry", "media_tags"))
 
 
+def _is_gov(record: Mapping[str, Any]) -> bool:
+    return str(record.get("source_type") or "").strip().lower() == "government"
+
+
+def _media_tier(record: Mapping[str, Any]) -> str:
+    """来源分级，决定热度权重。
+
+    政府站是政策的一手发布方，等同 media_heat.weights 里的 official（3.0 倍）。
+    原来这里一律回落到 industry（1.0），145 个政务源拿不到一手权重，
+    官方原文和转载在热度里被算成同一档。
+    """
+    explicit = str(record.get("media_type") or "").strip()
+    if explicit:
+        return explicit
+    return "official" if _is_gov(record) else "industry"
+
+
 def _matches(text: str, keywords: list[str]) -> list[str]:
     normalized = _normalize(text)
     return [str(keyword) for keyword in keywords if _normalize(keyword) and _normalize(keyword) in normalized]
@@ -108,7 +125,10 @@ def cluster_media_records(records: list[Mapping[str, Any]], config: Mapping[str,
     excluded = [str(item) for item in settings.get("exclude_keywords", [])]
     groups: list[dict[str, Any]] = []
     for record in records:
-        if not record.get("media_type") and record.get("source_type") != "media":
+        # 政务源也要参与。原来的闸门是「没有 media_type 且不是 media 源就跳过」，
+        # 而本项目 145/145 个源都是 government，闸门等于把全库关在门外——
+        # 这就是 heat_topics 表建好却一直 0 行的原因。
+        if not record.get("media_type") and not _is_gov(record) and record.get("source_type") != "media":
             continue
         if record.get("needs_review"):
             continue
@@ -153,7 +173,7 @@ def cluster_media_records(records: list[Mapping[str, Any]], config: Mapping[str,
             if not source_id or source_id in seen_sources:
                 continue
             seen_sources.add(source_id)
-            sources.append({"source_id": source_id, "source_name": item.get("issuing_body") or source_id, "media_type": item.get("media_type") or "industry", "source_url": item.get("source_url")})
+            sources.append({"source_id": source_id, "source_name": item.get("issuing_body") or source_id, "media_type": _media_tier(item), "source_url": item.get("source_url")})
         source_names = list(dict.fromkeys(str(item.get("source_name") or item.get("source_id")) for item in sources))
         if len(sources) < int(settings.get("min_sources", 2)):
             continue
@@ -177,7 +197,7 @@ def cluster_media_records(records: list[Mapping[str, Any]], config: Mapping[str,
         topic["category_weight"] = float((settings.get("category_weights") or DEFAULT_CATEGORY_WEIGHTS).get(category, 1.0))
         topic["heat_score"] = calculate_heat(topic, now=current, settings=settings)
         official_count = sum(1 for item in sources if item.get("media_type") == "official")
-        topic["heat_reason"] = f"{len(sources)}家媒体报道，其中{official_count}家官方媒体"
+        topic["heat_reason"] = f"{len(sources)}个独立来源，其中{official_count}个官方一手"
         topics.append(topic)
     return sorted(topics, key=lambda item: (-float(item["heat_score"]), str(item.get("latest_publish") or "")), reverse=False)
 

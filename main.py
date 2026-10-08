@@ -19,10 +19,9 @@ from output.heat_report import write_heat_report
 from output.markdown import write_markdown_records
 from output.pusher import EmailPusher
 from rules.engine import match_announcements
-from rules.corroboration import corroborate_records, corroboration_summary
-from rules.media_cluster import cluster_media_records, heat_summary
 from rules.industry_focus import apply_industry_focus
 from rules.tracker import apply_focus_tracking
+from lighthouse.postprocess import analyze
 from collectors.lock import collect_lock
 from storage.db import Database, compute_content_hash
 
@@ -85,7 +84,7 @@ def enrich_records(records: list[dict[str, Any]], sources: dict[str, dict[str, A
                 continue
             if value not in (None, "", []):
                 merged[key] = value
-        for key in ("issuing_body", "gov_level", "jurisdiction_code", "region_province", "region_city", "region_county", "level", "project_role", "category_l1", "category_l2", "target_group", "target_industry", "institution_name", "institution_type", "admission_type", "admission_sub_category"):
+        for key in ("issuing_body", "gov_level", "jurisdiction_code", "region_province", "region_city", "region_county", "level", "project_role", "source_type", "category_l1", "category_l2", "target_group", "target_industry", "institution_name", "institution_type", "admission_type", "admission_sub_category"):
             if source.get(key) is not None and merged.get(key) in (None, "", []):
                 merged[key] = source[key]
         if source.get("name") is not None and not merged.get("issuing_body"):
@@ -280,21 +279,17 @@ def _run(args) -> int:
             finally:
                 if collector is not None:
                     collector.close()
-        records = corroborate_records(records, rules)
-        corroboration_result = corroboration_summary(records)
-        media_clusters = cluster_media_records(records, rules, now=now)
-        topic_by_url = {str(url): topic for topic in media_clusters for url in topic.get("article_urls") or []}
-        for record in records:
-            topic = topic_by_url.get(str(record.get("source_url") or ""))
-            if topic is not None:
-                record["media_cluster_id"] = topic.get("cluster_id")
-                record["media_heat"] = topic.get("heat_score")
-                record["media_terms"] = topic.get("terms") or []
+        # 交叉验证 + 聚簇。与 lighthouse 链路共用 lighthouse.postprocess.analyze，
+        # 避免两处各写一遍、判据漂移（曾经就是这个原因：lighthouse 那份漏了整段）。
+        analyzed = analyze(records, rules, now=now)
+        records = analyzed["records"]
+        corroboration_result = analyzed["corroboration"]
+        media_clusters = analyzed["clusters"]
+        heat_result = analyzed["heat"]
         attachment_result = process_attachments(records)
         storage_result = database.upsert_announcements(records)
         extraction_result = database.save_field_extractions(records)
         attachment_db_result = database.save_attachments(records)
-        heat_result = heat_summary(media_clusters)
         database.upsert_heat_topics(media_clusters, now.date().isoformat())
         try:
             graph_result = rebuild_graph(database)

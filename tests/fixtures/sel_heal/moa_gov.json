@@ -1,0 +1,8 @@
+{
+  "source_id": "moa_gov",
+  "url": "https://zzys.moa.gov.cn/tzgg/",
+  "list_selector": null,
+  "link_selector": null,
+  "detail_pattern": "/\\d{6}/t\\d{8}_\\d+\\.s?html?$",
+  "bytes": 45224
+}

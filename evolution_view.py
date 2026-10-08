@@ -78,7 +78,7 @@ def render(db_path: str = "data/beacon.db") -> None:
                 "剩余可用修复": len(remaining),
                 "需人工/Agent": "、".join(str(f.get("id")) for f in manual) or "—",
             })
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
         if blocked:
             st.warning(
                 "这些缺陷的候选修复已全部尝试过，自动循环不会再动它们，需要新增候选或人工处理："
@@ -96,7 +96,7 @@ def render(db_path: str = "data/beacon.db") -> None:
           "修复数": len(d.get("fixes") or []),
           "已用修复": "、".join(f.get("id") for f in (d.get("fixes") or []) if f.get("id") in used) or "—"}
          for d in defects],
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
     )
 
     with st.expander("修正规则说明"):
@@ -104,7 +104,7 @@ def render(db_path: str = "data/beacon.db") -> None:
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("运行一轮自动修正", key="evo_run", use_container_width=True):
+        if st.button("运行一轮自动修正", key="evo_run", width="stretch"):
             import subprocess
 
             with st.spinner("测量 → 应用 → 复测中…"):
@@ -116,7 +116,7 @@ def render(db_path: str = "data/beacon.db") -> None:
             st.session_state["evo_output"] = (proc.stdout or proc.stderr or "").strip()
             st.rerun()
     with c2:
-        if st.button("刷新指标", key="evo_refresh", use_container_width=True):
+        if st.button("刷新指标", key="evo_refresh", width="stretch"):
             st.rerun()
     if st.session_state.get("evo_output"):
         with st.expander("上次运行输出", expanded=True):

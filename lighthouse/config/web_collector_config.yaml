@@ -1,190 +1,153 @@
-# 灯塔采集工具 lighthouse · 全部可调参数
-# 改这里，不要改代码。所有字符串、阈值、判据都在这个文件里。
-
 general:
-  # 主项目根目录。相对路径按 lighthouse/ 的上一级解析；绝对路径直接用。
-  # 必须是本项目根目录 —— 下面的 markdown_dir / report_dir 都挂在它下面。
-  project_root: "."
-  # markdown 输出根目录，相对 project_root
-  markdown_dir: "data/markdown"
-  # 影子报告目录（dry-run 时写这里）
-  report_dir: "data/runtime/lighthouse"
-
-# ---------------------------------------------------------------- 质量判据
-# 降级判据是「正文质量」，不是「HTTP 成功」。
-# 政府栏目页返回 200、正文抽出来两千字导航文字 —— 这是最常见的假成功。
+  project_root: .
+  markdown_dir: data/markdown
+  report_dir: data/runtime/lighthouse
 quality:
-  # 正文达到这个长度才「值得」再花 10-50 倍成本去升级渲染。
-  # 低于它但内容干净，直接接受——渲染不会让一篇 300 字的完整通告变长。
   min_content_chars: 800
-  # 正文短于这个长度就彻底没救了：连一个完整句都取不到，直接丢弃。
-  # 200 字左右，够摘出「谁发的 + 什么事 + 什么时候截止」了。
   min_summary_chars: 200
-  # 站点框架文字的「字符占比」上限。0.03 = 正文的 3% 以内可以出现导航词。
-  #
-  # 为什么按比例不按次数：原来写的是 max_chrome_hits: 0（一次都不许有），
-  # 实测全库时它把 61 条正文超过 1000 字的正常文档也判死了——一篇 5833 字的
-  # 正文里出现几个「网站地图」不代表它是栏目页。真正要拦的是「满页都是导航」
-  # 那种页面，那种的占比会到 20% 以上。按次数判会误杀，按比例判才对。
   max_chrome_ratio: 0.03
-  # markdown 链接/图片占位符的字符占比上限。
-  # 这条是为「满屏面包屑」抓的：那种页面每行都是 [首页](url)，
-  # data_health.py 的 CHROME_RE 完全看不见，但正文其实一个字都没有。
   max_link_ratio: 0.25
-  # 目录行连续出现多少条就判为目录页（政府公报和汇编的通病）
   max_toc_run: 8
-  # 站点框架文字特征。政务站的导航套话高度 stereotyped，这张表按实测漏网的
-  # 样本补过一轮：kjt.sc.gov.cn 那种「无障碍/设为首页/繁體/长者专区/
-  # 网站支持IPv6」原来一个都不在表里，整页漏过门禁进了库。
   chrome_patterns:
-    - "上一篇"
-    - "下一篇"
-    - "返回顶部"
-    - "网站标识码"
-    - "版权所有"
-    - "联系我们"
-    - "网站地图"
-    - "友情链接"
-    - "打印本页"
-    - "关闭窗口"
-    - "字号：大 中 小"
-    - "扫一扫在手机打开当前页"
-    - "分享到："
-    - "无障碍"
-    - "设为首页"
-    - "繁體"
-    - "繁体"
-    - "长者专区"
-    - "网站支持IPv6"
-    - "旧版回顾"
-    - "RSS订阅"
-    - "当前位置："
-    - "网站首页"
-  # 目录行特征
+  - 上一篇
+  - 下一篇
+  - 返回顶部
+  - 网站标识码
+  - 版权所有
+  - 联系我们
+  - 网站地图
+  - 友情链接
+  - 打印本页
+  - 关闭窗口
+  - 字号：大 中 小
+  - 扫一扫在手机打开当前页
+  - 分享到：
+  - 无障碍
+  - 设为首页
+  - 繁體
+  - 繁体
+  - 长者专区
+  - 网站支持IPv6
+  - 旧版回顾
+  - RSS订阅
+  - 当前位置：
+  - 网站首页
+  - 扫一扫.{0,6}手机.{0,4}当前页
+  - ^\*+$
   toc_patterns:
-    - "^目\\s*录"
-    - "^附\\s*件"
-    - "^索\\s*引"
-    - "^抄\\s*送"
-    - "^主题词"
-    - "^来源[:：]"
-    - "^-{3,}\\s*\\d+\\s*-{3,}\\s*$"
-    - "^\\d+\\s*-\\s*\\d+\\s*$"
-
-# ---------------------------------------------------------------- 路由阶梯
-# 顺序即降级顺序，先命中先返回。渲染贵 10-50 倍，
-# 所以质量判据必须把绝大多数请求挡在 level 2。
+  - ^目\s*录
+  - ^附\s*件
+  - ^索\s*引
+  - ^抄\s*送
+  - ^主题词
+  - ^来源[:：]
+  - ^-{3,}\s*\d+\s*-{3,}\s*$
+  - ^\d+\s*-\s*\d+\s*$
 routes:
-  # 列表页每源最多翻几页
-  archive_pages: 12
-  # 每源本轮最多取多少条
-  max_items: 200
-  # 连续遇到多少条「已知 URL」就早停（已入库的不重复抓）。
-  # 必须大于「连续已知前缀」，否则永远翻不到未采的条目：列表按时间倒序，
-  # 最新的那批采过之后就是一段连续的已知前缀。实测采空的源前缀长达 60，
-  # 默认值 2、后来调到 40 都不够，所以这里给 150。
+  archive_pages: 60
+  max_items: 2000
   max_stale_pages: 150
-
   levels:
-    - name: rss
-      cost: 1
-      enabled: false          # 145 个源目前 rss_url 一个都没配，先关着
-      desc: "源配了 rss_url 才走"
-
-    - name: api
-      cost: 1
-      enabled: false          # 145 个源 list_endpoint 一个都没配，先关着
-      desc: "源配了 list_endpoint 且拿到 >=3 条才走"
-
-    - name: static
-      cost: 3
-      enabled: true
-      desc: "httpx + trafilatura，主力路径"
-      timeout_seconds: 30
-
-    - name: render
-      cost: 30
-      enabled: true
-      desc: "cloakbrowser + playwright，独立 worker 进程"
-      wait_until: networkidle
-      timeout_ms: 60000
-      settle_ms: 5000
-
-    - name: markdown
-      cost: 50
-      enabled: true
-      desc: "crawl4ai fit_markdown，最后手段"
-      timeout_ms: 60000
-      # crawl4ai 0.9.3 的 BrowserConfig 没有 executable_path，只会按 channel 找浏览器。
-      # 本机 ms-playwright 目录是空的（只下了 .links，从没装过 chromium），
-      # 所以默认 channel="chromium" 必然抛
-      #   BrowserType.launch: Executable doesn't exist at .../ms-playwright/...
-      # 用已安装的 Edge（playwright 的 channel 名是 msedge）就不需要任何下载。
-      # 实测这台机器 Edge 在 C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe。
-      # 换机器时先跑 `playwright install chromium`，再把这里改回 chromium。
-      chrome_channel: "msedge"
-
-    - name: pdf
-      cost: 10
-      enabled: true
-      desc: "页面正文只在 PDF 附件里时走"
-      max_bytes: 20971520
-
-# ---------------------------------------------------------------- 采集默认值
-# 源没写这两个字段时用这里的值。不逐个去改 sources.yaml 的 145 条 ——
-# 那些条目里有人工填的审核字段，批量覆写的代价见 lighthouse/promote.py 的说明。
-#
-# 这两个值是**实测定的**，不是拍的。取 4 个已采空的源，看不同 archive_pages 下
-# 列表页能翻出多少未采条目：
-#
-#     archive_pages= 6   候选合计 278   未采  88
-#     archive_pages=12   候选合计 439   未采 249     <- 翻页是最有效的杠杆
-#     archive_pages=20   候选合计 501   未采 311
-#
-# 6 -> 12 翻一翻，未采条目就翻了近 3 倍。109 个源按同样比例，能多出数千条。
-#
-# max_items 必须跟着放大：html_list.py 的 fetch_list 结尾是 links[:cap]，
-# cap 取自 max_items。原来 60 会把候选池直接截断在 60 条——所以「抬高
-# max_items」在没有同步抬 archive_pages 之前是无效的，两个一起抬才有意义。
+  - name: rss
+    cost: 1
+    enabled: false
+    desc: 源配了 rss_url 才走
+  - name: api
+    cost: 1
+    enabled: false
+    desc: 源配了 list_endpoint 且拿到 >=3 条才走
+  - name: static
+    cost: 3
+    enabled: true
+    desc: httpx + trafilatura，主力路径
+    timeout_seconds: 30
+  - name: render
+    cost: 30
+    enabled: true
+    desc: cloakbrowser + playwright，独立 worker 进程
+    wait_until: networkidle
+    timeout_ms: 60000
+    settle_ms: 5000
+  - name: markdown
+    cost: 50
+    enabled: true
+    desc: crawl4ai fit_markdown，最后手段
+    timeout_ms: 60000
+    chrome_channel: msedge
+  - name: pdf
+    cost: 10
+    enabled: true
+    desc: 页面正文只在 PDF 附件里时走
+    max_bytes: 20971520
 collect_defaults:
-  archive_pages: 12
-  max_items: 200
-  # 低于这个值的源统一抬上来。archive_pages 同理：52 个源在 sources.yaml 里
-  # 已经写了 6，只填空不覆盖的话它们拿不到「翻页翻 3 倍」这个收益。
-  raise_archive_pages_below: 12
-  raise_max_items_below: 200
-
-# ---------------------------------------------------------------- 限速
-# 政府站是公共服务，采集要有节制。这一节的每一个值都直接影响
-# 「能不能长期跑下去」，不要为了快而调小。
+  archive_pages: 30
+  max_items: 600
+  raise_archive_pages_below: 30
+  raise_max_items_below: 600
 rate_limit:
-  # 每个源两次请求之间的最小间隔（秒）
   per_source_interval_seconds: 3
-  # *.gov.cn 域名的额外间隔（秒），叠加在上面的值之上
   gov_domain_extra_seconds: 2
-  # 每轮采集的源级并发
   workers: 6
-  # 单源本轮的时间预算（秒），超了就保留已采到的部分
-  source_budget_seconds: 300
-
-# ---------------------------------------------------------------- 摘要
-# 摘要是「名片」不是「全文摘要」：让人判断这条公告值不值得点开。
-# 判据：谁发的 + 什么时候 + 多少钱 + 什么事。四个字段都来自原文，不生成。
+  source_budget_seconds: 1800
+  stall_source_budget_seconds: 420
+  deep_source_budget_seconds: 1500
+collect_scope:
+  exclude:
+  - 香港特别行政区
+  - 澳门特别行政区
+  include:
+    gov_level:
+    - 国家部委
+    - 省级
+    - 直辖市
+    - 市级
+    - 县级
+    - 特别行政区
+    region:
+    - 北京市
+    - 上海市
+    - 广州市
+    - 深圳市
+    - 成都市
+    - 重庆市
+    - 浙江省
+    - 江苏省
+    - 武汉市
+  scope_note_2026_10_02: 项目负责人决定全开：145 个源全部启用，白名单同步放开到全部层级。改动前只放行「国家部委 + 9 个城市」，145
+    个源里有 101 个不在白名单内 —— 配置说全开、白名单只认 34 个，范围就漂移了。
+focus_order:
+- gov_level:
+  - 国家部委
+- region:
+  - 北京市
+  - 上海市
+  - 广州市
+  - 深圳市
+- region:
+  - 江苏省
+  - 浙江省
+- region:
+  - 成都市
+  - 武汉市
+  - 重庆市
+- source_type:
+  - university
+  - military_recruitment
+- functions_any:
+  - 公招信息
+  - 招聘信息
+  - 招生政策
+  - 招生信息
+  - 教育通知
 summary:
   max_chars: 300
-  # 从正文开头多少个句子里取（只在这个窗口内找，避免挑到案例汇编里的第 40 篇）
   lead_window_sentences: 8
-  # 单句长度区间，超出就丢弃
   min_sentence_chars: 15
   max_sentence_chars: 230
-  # 句子最短结尾：摘要最后一个片段必须以这个集合里的字符收尾
-  # 这是「绝不在字符数处硬切」的硬约束
-  terminators: "。！？；"
-  # 要不要在摘要开头拼结构化字段（发文机关/日期/金额/截止）
+  terminators: 。！？；
   prefix_facts: true
-  # 金额垃圾值：命中这些形态就判为「原文没写金额」，宁可置空也不猜
   amount_junk_patterns:
-    - "^\\d{4}$"              # 2026 这种年份
-    - "^\\d{1,2}$"            # 20 / 50 这种裸小数字
-    - "^0$"
-    - "^\\d{1,3}%$"
+  - ^\d{4}$
+  - ^\d{1,2}$
+  - ^0$
+  - ^\d{1,3}%$

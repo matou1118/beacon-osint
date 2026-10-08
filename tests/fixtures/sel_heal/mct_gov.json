@@ -1,0 +1,8 @@
+{
+  "source_id": "mct_gov",
+  "url": "https://www.mct.gov.cn/whzx/ggtz/",
+  "list_selector": null,
+  "link_selector": null,
+  "detail_pattern": "/\\d{6}/t\\d{8}_\\d+\\.s?html?$",
+  "bytes": 28267
+}

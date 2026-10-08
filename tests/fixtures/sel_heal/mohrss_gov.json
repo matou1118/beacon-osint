@@ -1,0 +1,8 @@
+{
+  "source_id": "mohrss_gov",
+  "url": "https://chinajob.mohrss.gov.cn/h5/zxpd/zxdt/",
+  "list_selector": null,
+  "link_selector": null,
+  "detail_pattern": "/c/\\d{4}-\\d{2}-\\d{2}/\\d+\\.s?html?$",
+  "bytes": 36161
+}

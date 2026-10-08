@@ -37,11 +37,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from collectors.lock import CollectLockBusy, acquire, release  # noqa: E402
 from collectors.net import proxy_status  # noqa: E402
+from lighthouse.winflags import ensure_stdio as _ensure_stdio  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 STATE = ROOT / "data" / "pipeline_state.json"
 LOCK_DIR = ROOT / "data" / "runtime" / "collect.lock"
+
+# ★ 必须在第一次 log() 之前。理由见 lighthouse/winflags.py 的 ensure_stdio 文档。
+#
+# 2026-10-05 实测：这条链路每天跑到「代理自检」就崩，traceback 是
+#   File "scripts/pipeline.py", line 58, in log
+#     print(message, flush=True)
+#   UnicodeEncodeError: 'gbk' codec can't encode character '\u26a0'
+#
+# 也就是说**只要走到要打 ⚠ 的那条分支，整个流水线进程就死了**——
+# 不是那一步失败，是后面所有步骤都不再执行。
+#
+# 为什么现在才炸：pipeline.py 一直缺这个保护，而我只给
+# watchdog / overnight / run.py 三个入口装了 ensure_stdio（它们是通宵链）。
+# pipeline.py 是**另一条**链（清洗/补字段/分类/去重），一直没被覆盖。
+#
+# 顺带说明我之前判断错在哪：我把由此引发的 4 个测试失败误诊成
+# 「import streamlit 污染 stdout」。真正的判别特征是
+# ``UnicodeEncodeError: 'gbk' codec can't encode``，
+# 出现这个就必须去看是哪个脚本 print 了非 GBK 字符，而不是去怀疑 import 顺序。
+_ensure_stdio(ROOT / "data" / "runtime" / "lighthouse" / "scheduler.out")
 # 流水线自己的锁目录。必须是另一把锁：它会调 batch_collect，而 batch_collect 要取
 # 采集锁，同一把会让流水线把自己挡在门外。
 #
@@ -216,8 +237,19 @@ def _run(args) -> int:
     proxy_ok, proxy_note = proxy_status()
     log(f"代理自检：{proxy_note}")
     if not proxy_ok:
-        log("代理不通，本轮不采集。留着时间给下一个 2 小时切片，别拿假进度糊弄一夜。")
-        return 2
+        # ★ 降级为告警，不再拦停采集。
+        #
+        # 这道闸当初是为「代理是采集硬依赖」设的，2026-10-01 通宵那晚确实
+        # 靠它避免了 101 个源白跑。但 2026-10-03 实测推翻了那个前提：
+        # 采集目标全是政府公开站点，**直连完全正常**（miit 0.3 秒 / mee 0.1 秒
+        # 拿到 200），而浏览器里开着的系统代理重启后失效���把这道闸留在
+        # 采集路径上，结果就是**代理一挂，采集彻底停摆**，整夜零入库。
+        #
+        # 现在 collectors/base.py 的 httpx.Client 已经设了 trust_env=False，
+        # 采集不再读系统代理，所以代理不通不再是采集的必要条件。
+        # 真需要走代理的部署，改那一行即可，不必在这里拦。
+        log("⚠ 代理不通，但采集走直连（collectors/base.py 已设 trust_env=False），继续。"
+            "只有真需要代理的部署才该在这里拦停。")
 
     collect = [PY, "-u", "-B", "scripts/batch_collect.py", "--force",
                "--limit", str(args.limit), "--workers", str(args.workers),

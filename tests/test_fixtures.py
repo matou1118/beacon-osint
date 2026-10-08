@@ -88,13 +88,55 @@ class FixtureTests(unittest.TestCase):
         config = load_config("config/sources.yaml")
         enabled = [s for s in resolve_sources(config)
                    if s.get("status") == "enabled" and s.get("enabled", True)]
-        # 数量回退守卫：2026-09-27 从 52 扩到 101，掉回去说明配置被覆盖了
-        self.assertGreaterEqual(len(enabled), 100, "启用源数量回退了")
         for source in enabled:
             self.assertTrue(source.get("url") or source.get("rss_url"),
                             f"启用的源 {source.get('id')} 没有 url")
             self.assertTrue(source.get("access_method"),
                             f"启用的源 {source.get('id')} 没有 access_method")
+
+    def test_enabled_sources_match_configured_scope(self) -> None:
+        """启用的源必须和 config 的 collect_scope 白名单一致。
+
+        原来的守卫是写死的「≥100 个」。2026-09-30 按用户要求改成白名单制
+        （只采部委/北京/上海/广州/深圳/成都/重庆/浙江/江苏/武汉），enabled 源
+        从 114 降到 34，写死的数字就变成了挡路的东西 —— 但「范围不许漂移」
+        这个守卫本身是对的，它得跟着配置走。
+
+        这样改还有个好处：以后往白名单里加地方，这个测试立刻会因为「注册表还没
+        同步」而失败，指向 scripts/apply_collect_scope.py，而不是默默跑偏。
+        """
+        import yaml
+
+        collector_cfg = yaml.safe_load(
+            (Path(__file__).resolve().parents[1] / "lighthouse" / "config"
+             / "web_collector_config.yaml").read_text(encoding="utf-8")) or {}
+        scope = (collector_cfg.get("collect_scope") or {}).get("include") or {}
+        gov_levels = {str(x) for x in (scope.get("gov_level") or [])}
+        regions = {str(x) for x in (scope.get("region") or [])}
+        if not gov_levels and not regions:
+            self.skipTest("config 里没配 collect_scope，跳过范围一致性检查")
+
+        def wanted(source: dict) -> bool:
+            province = str(source.get("region_province") or "")
+            city = str(source.get("region_city") or "")
+            return (str(source.get("gov_level") or "") in gov_levels
+                    or province in regions or city in regions
+                    or any(province.startswith(r) or city.startswith(r)
+                           for r in regions))
+
+        registry = load_config("config/sources.yaml")
+        on = [s for s in resolve_sources(registry)
+              if s.get("status") == "enabled" and s.get("enabled", True)]
+        out_of_scope = [s["id"] for s in on if not wanted(s)]
+        self.assertEqual(out_of_scope, [],
+                         f"这些启用源不在 collect_scope 白名单里：{out_of_scope}")
+
+        excluded = {str(x) for x in
+                    ((collector_cfg.get("collect_scope") or {}).get("exclude") or [])}
+        leaked = [s["id"] for s in on
+                  if str(s.get("region_province") or "") in excluded
+                  or str(s.get("region_city") or "") in excluded]
+        self.assertEqual(leaked, [], f"这些被排除地区仍在采：{leaked}")
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ import glob
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -38,6 +39,23 @@ if str(_ROOT) not in sys.path:
 
 DB = _ROOT / "data" / "beacon.db"
 JSONL_GLOB = str(_ROOT / "data" / "runtime" / "lighthouse" / "collected-*.jsonl")
+# 入库结果的侧车。调度器靠它记账，而不是自己数两遍全库。
+#
+# 之前 gained = 全库 after - 全库 before。可只要有第二个进程写同一个库
+# （scripts/dedup.py、prune_section_pages.py、审计脚本都会），这个差值就不属于
+# 这一轮：实测 2026-09-29 第 2 轮记成 -44，而那一轮实际入库 +9 —— 中间被别人
+# 删掉 53 行。跑半个月必然撞上，账本会全是这种假负数。
+LAST_INGEST = _ROOT / "data" / "runtime" / "lighthouse" / "last_ingest.json"
+
+
+def write_receipt(**fields: Any) -> None:
+    """把本次入库的真实数字落盘，供调度器记账。"""
+    payload = {**fields, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    try:
+        LAST_INGEST.write_text(json.dumps(payload, ensure_ascii=False),
+                               encoding="utf-8")
+    except OSError:
+        pass
 
 
 def log(message: str) -> None:
@@ -96,16 +114,24 @@ def ingest(path: str | None = None, *, db_path: str = str(DB), batch: int = 50,
             log(f"  失败 {record.get('source_url', '?')[:80]}: {type(exc).__name__}: {exc}")
 
     after = db.count_announcements()
+    gained = after - before
+    write_receipt(jsonl=Path(target).name, total=total, inserted=inserted,
+                  failed=failed, before=before, after=after, gained=gained)
     if dry_run:
         log(f"[dry-run] 待写入 {total} 条，当前 {before} 条，预计写入后 {before + total} 条")
         return 0
 
     log(f"处理 {total} 条 | 成功 {inserted} | 失败 {failed} | "
-        f"库 {before} → {after}（净增 {after - before}） | {round(time.time()-started, 1)}s")
-    if after - before < inserted:
+        f"库 {before} → {after}（净增 {gained}） | {round(time.time()-started, 1)}s")
+    if gained < inserted:
         # 差值 = 已被 upsert 判为同一条的，正常现象（重跑同一批就是这样）。
         # 不是错误，但要说清楚，否则「成功 267 条但库只多了 3 条」看着像 bug。
-        log(f"（{inserted - (after - before)} 条命中已有记录，是重复采集，upsert 已跳过）")
+        log(f"（{inserted - gained} 条命中已有记录，是重复采集，upsert 已跳过）")
+    if gained < 0:
+        # 有别的进程在删同一个库（dedup / prune_section_pages 都会）。本次入库
+        # 本身没造成负数，但得说清楚，否则看的人以为是入库把数据删了。
+        log(f"注意：库比入库前还少 {abs(gained)} 条，说明有其他进程在删数据，"
+            f"本次入库实际写入 {inserted} 条。")
     return 1 if failed and not inserted else 0
 
 

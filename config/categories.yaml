@@ -13,6 +13,34 @@ l1:
       - 行业标准
       - 监管政策
       - 价格政策
+      # 主管部门归类的二级词表（classify_by_department 产出的 category_l2）。
+      # 部门名只表示行业领域，不再作为一级分类。
+      - 财政金融
+      - 交通运输
+      - 农业农村
+      - 商务贸易
+      - 法治司法
+      - 工业制造
+      - 医疗保障
+      - 住房保障
+      - 科技创新
+      - 能源资源
+      - 市场监管
+      - 民政社会
+      - 应急安全
+      - 国防军队
+      - 税收海关
+      # 下面 5 个是分类器早就在产出、但这张表漏登记的（2026-10-06 实测
+      # 989 条记录因为它们「不在分类表内」被核对脚本判成越界）。
+      # 它们的规则在 config/category_rules.yaml 的 fallback_categories.行业政策
+      # 下，搬迁到这张表时漏了。漏登记的后果不是不好看，而是前端下拉和
+      # 订阅匹配看不到这些子类——订阅「能源电力」的用户一条都匹配不上。
+      - 生态环保
+      - 能源电力
+      - 交通物流
+      - 文化旅游
+      - 登记变更
+      - 产品召回
     required: false
   行业补贴:
     subcategories:
@@ -20,12 +48,18 @@ l1:
       - 技术改造补贴
       - 人才补贴
       - 企业扶持
+      # 同上：规则在 fallback_categories.行业补贴 下，表里漏了（15 条记录）。
+      - 贸易救济
     required: false
   公务员考试:
     subcategories:
       - 国考招录
       - 省考招录
       - 选调生招录
+      # 同上：规则在 categories.公务员考试 下，表里漏了（53 条记录）。
+      - 考试安排
+      - 警察招录
+      - 司法警官招录
     required: false
   军队招录:
     subcategories:
@@ -44,6 +78,10 @@ l1:
       - 货物采购
       - 服务采购
       - 资质预警
+      # 同上：比选采购是政府采购的常见形式、课题承担是科研委托，
+      # 两者在政务公告里高频出现（564 条记录），规则里早就有，表里漏了。
+      - 比选采购
+      - 课题承担
     required: false
   商业机会:
     subcategories:
@@ -95,6 +133,51 @@ l1:
       - 事业单位定向培养
       - 招生政策解读
     required: true
+  # ── 政务文种（classify() 第 2 层 fallback_categories 的落点）─────────
+  # 这 7 类不是设计出来的，是 scripts/audit_categories.py 审计「其他」堆积后
+  # 按文种词频补出、并经 scripts/add_category_taxonomy.py 写入 category_rules.yaml
+  # 的。此前漏在本枚举之外，导致按文种归类的记录在前端勾不到、订阅也匹配不到。
+  政策发布:
+    subcategories:
+      - 通知
+      - 通告
+      - 方案
+    required: false
+  公示公告:
+    subcategories:
+      - 公示
+      - 名单
+      - 征求意见
+    required: false
+  政策法规:
+    subcategories:
+      - 办法
+      - 意见决定
+      - 规范性文件
+    required: false
+  规划计划:
+    subcategories:
+      - 规划
+      - 计划
+      - 标准规范
+    required: false
+  政策解读:
+    subcategories:
+      - 解读
+      - 指南
+    required: false
+  行政审批:
+    subcategories:
+      - 批复
+      - 许可登记
+    required: false
+  非公告体裁:
+    subcategories:
+      - 时政要闻
+      - 新闻通稿
+      - 数据播报
+      - 活动新闻
+    required: false
   其他:
     subcategories:
       - 未分类

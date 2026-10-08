@@ -121,10 +121,27 @@ def _safe_content(page: Any, timeout_ms: int, attempts: int = 3) -> str:
 
 def _worker(inbox: Any) -> None:
     """Serve render tasks until the parent closes the pipe."""
-    # 这里**不要**再给 subprocess.Popen 打补丁。实测：在 worker 里强制
-    # CREATE_NO_WINDOW，隔离测试里「父=node.exe 的 conhost」从 0 次变成 1 次，
-    # 方向是反的。弹窗的补丁统一放在调用方（lighthouse/winflags），worker 保持
-    # 原样最稳。
+    # worker 也要装 winflags：它自己会 spawn node 驱动，调用方的补丁传不进来。
+    # 不 import lighthouse.winflags（免得主项目依赖工具目录），内联同样逻辑。
+    if os.name == "nt":
+        _no_window = 0x08000000
+        _new_console = 0x00000010
+        _detached = 0x00000008
+        _orig = subprocess.Popen.__init__
+
+        def _popen(self, *a, **kw):                  # type: ignore[no-untyped-def]
+            flags = int(kw.get("creationflags") or 0)
+            # 保 NEW_CONSOLE（Renderer 给本 worker 配的隐藏控制台），
+            # 剥 DETACHED_PROCESS 并补 NO_WINDOW——playwright 启动 node 驱动时
+            # 传的就是 DETACHED_PROCESS，Windows 会脱离控制台再自己分配一个，
+            # conhost 起来即退，那就是桌面上每分钟一闪的窗口。
+            if not flags & _new_console:
+                flags = (flags & ~_detached) | _no_window
+            kw["creationflags"] = flags
+            _orig(self, *a, **kw)
+
+        subprocess.Popen.__init__ = _popen          # type: ignore[assignment]
+
     global _PAGE
     while True:
         try:
@@ -272,22 +289,34 @@ class Renderer:
         # multiprocessing has no public flag for this, but Process reads
         # _creationflags on Windows before Popen, so setting it before start()
         # is the supported-by-behaviour way.
-        # CREATE_NO_WINDOW on the worker.
+        # 给 worker 一个**隐藏的控制台**。
         #
-        # multiprocessing's spawn inherits the parent's console, but when the
-        # parent has none — which is the normal case now that the collectors are
-        # launched detached — the child allocates a fresh one, so a console
-        # window flashes on the user's desktop every time a Renderer is created.
+        # 这是弹窗的最后一环。worker 自己会 spawn playwright 的 node 驱动，
+        # 而调用方装的 winflags 只在本进程生效，传不进这个 spawn 出来的子进程。
+        # worker 没有控制台时，node 会自己分配一个（conhost 起来就退），
+        # 那就是桌面上每分钟一闪的窗口。
         #
-        # multiprocessing has no public flag for this, but Process reads
-        # _creationflags on Windows before Popen, so setting it before start()
-        # is the supported-by-behaviour way.
-        #
-        # 试过给它一个隐藏控制台（CREATE_NEW_CONSOLE + SW_HIDE），期望让内部的
-        # node 驱动继承——实测反而从 0 次变成 1 次，方向不对，已回退。
+        # multiprocessing 的 start() 不接受 startupinfo，所以在启动那一瞬
+        # 临时给 subprocess.Popen 挂上 SW_HIDE，start 完立刻还原——只影响这一次。
         if os.name == "nt":
-            self._process._creationflags = 0x08000000
-        self._process.start()
+            info = subprocess.STARTUPINFO()
+            info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            info.wShowWindow = 0                       # SW_HIDE
+            self._process._creationflags = 0x00000010 | 0x00000400
+            _orig = subprocess.Popen.__init__
+
+            def _hidden(self, *a, **kw):               # type: ignore[no-untyped-def]
+                kw["creationflags"] = int(kw.get("creationflags") or 0) | 0x00000400
+                kw["startupinfo"] = info
+                _orig(self, *a, **kw)
+
+            subprocess.Popen.__init__ = _hidden        # type: ignore[assignment]
+            try:
+                self._process.start()
+            finally:
+                subprocess.Popen.__init__ = _orig      # type: ignore[assignment]
+        else:
+            self._process.start()
         child.close()
 
     def render(
@@ -377,7 +406,33 @@ def render_page(
         if _RENDERER is None:
             _RENDERER = Renderer()
         renderer = _RENDERER
-    return renderer.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)[0]
+        # ★ 整个 render 必须在锁内，不能只锁「取 renderer」那一步。
+        #
+        # 实测 2026-10-02（4 线程并发，串行同样的 4 个全部成功）：
+        #   并发 -> AssertionError / UnpicklingError: pickle data was truncated，全灭
+        #   串行 -> 4/4 成功
+        #
+        # 根因是 Renderer 用 ``multiprocessing.Pipe`` 和 worker 进程通信，
+        # 而 Pipe **不是线程安全的**：两个线程同时往同一个 inbox 读，
+        # 就会各自拿到半截 pickle —— 报的正是 UnpicklingError。
+        # 之前 ``_RENDER_LOCK`` 只保护「惰性创建 renderer」，render() 在锁外跑，
+        # 等于没锁。
+        #
+        # 为什么 worker 进程隔离挡不住这个：进程隔离解决的是**事件循环**冲突
+        # （Playwright sync API vs crawl4ai 的 asyncio.run），那是原先那个
+        # 「Sync API inside the asyncio loop」；这里是**同一个 Pipe 被多线程读**，
+        # 是另一回事，两者互不相干。
+        #
+        # 渲染本来就慢，6 个采集线程抢一个浏览器，串行化不会让整体更慢；
+        # 而失败是全灭——不成串行就等于没有渲染能力。
+        try:
+            return renderer.render(url, executable_path, timeout_ms, wait_ms,
+                                   wait_until, locale, pages)[0]
+        except Exception:
+            # 句柄可能已经废了（EPIPE / pickle 截断都是它的症状）：
+            # 丢掉它，下次重新启动一个干净的浏览器，而不是永远对着死句柄报错。
+            _RENDERER = None
+            raise
 
 
 def render_pages(
@@ -395,7 +450,14 @@ def render_pages(
         if _RENDERER is None:
             _RENDERER = Renderer()
         renderer = _RENDERER
-    return renderer.render(url, executable_path, timeout_ms, wait_ms, wait_until, locale, pages)
+        # 同 render_page：整个 render 必须在锁内。Pipe 不是线程安全的，
+        # 原因见 render_page 里那段注释。
+        try:
+            return renderer.render(url, executable_path, timeout_ms, wait_ms,
+                                   wait_until, locale, pages)
+        except Exception:
+            _RENDERER = None
+            raise
 
 
 def shutdown_renderer() -> None:

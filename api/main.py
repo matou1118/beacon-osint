@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.config import Settings, load_settings
-from api.routers import announcements, auth, categories, feedback, graph, heat, subscriptions
+from api.routers import announcements, auth, categories, feedback, graph, heat, ops, stats, subscriptions
 from api.services.match_service import MatchService
 from api.services.user_service import UserService
 from storage.db import Database
@@ -52,6 +52,8 @@ def create_app(db_path: str | None = None, settings: Settings | None = None) -> 
     app.include_router(heat.router, prefix="/api/heat", tags=["热频话题"])
     app.include_router(categories.router, prefix="/api", tags=["基础数据"])
     app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
+    app.include_router(ops.router, prefix="/api/ops", tags=["采集运维"])
+    app.include_router(stats.router, prefix="/api/stats", tags=["统计"])
 
     @app.get("/health")
     def health_check():

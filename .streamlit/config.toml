@@ -1,0 +1,4 @@
+[server]
+# 首页/中国地图的 echarts、three.js 与 geojson 走 /app/static/ 由浏览器缓存，
+# 不再每次 rerun 内联 20MB+ 进 iframe srcdoc。开关注释即地图与图表会空白。
+enableStaticServing = true

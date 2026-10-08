@@ -43,7 +43,7 @@ def render(db_path: str = "data/beacon.db") -> None:
             default=list(NOTICE_TYPES),
             format_func=lambda t: NOTICE_TYPE_LABEL.get(t, t),
         )
-        if st.button("保存订阅", type="primary", use_container_width=True):
+        if st.button("保存订阅", type="primary", width="stretch"):
             sub_id = save_subscription(db_path, topic["id"], chosen_regions, chosen_types)
             st.success(f"已保存订阅 #{sub_id}。")
             st.rerun()
@@ -62,11 +62,11 @@ def render(db_path: str = "data/beacon.db") -> None:
                 act1, act2 = st.columns(2)
                 with act1:
                     toggle_label = "暂停" if sub["enabled"] else "恢复"
-                    if st.button(toggle_label, key=f"tog-{sub['id']}", use_container_width=True):
+                    if st.button(toggle_label, key=f"tog-{sub['id']}", width="stretch"):
                         set_subscription_enabled(db_path, sub["id"], not sub["enabled"])
                         st.rerun()
                 with act2:
-                    if st.button("删除", key=f"del-{sub['id']}", use_container_width=True):
+                    if st.button("删除", key=f"del-{sub['id']}", width="stretch"):
                         remove_subscription(db_path, sub["id"])
                         st.rerun()
 
@@ -76,7 +76,7 @@ def render(db_path: str = "data/beacon.db") -> None:
         with head_left:
             st.subheader(f"站内通知（未读 {unread}）")
         with head_right:
-            if unread and st.button("全部已读", use_container_width=True):
+            if unread and st.button("全部已读", width="stretch"):
                 mark_all_read(db_path)
                 st.rerun()
         only_unread = st.toggle("只看未读", value=False)

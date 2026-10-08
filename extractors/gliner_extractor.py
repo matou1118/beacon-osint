@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 try:
     from gliner2 import GLiNER2
@@ -17,37 +20,20 @@ ENTITY_DESCRIPTIONS = {
     "target_industry": "适用行业",
 }
 
-CATEGORY_VALUES = [
-    "新闻动态",
-    "财政金融",
-    "交通运输",
-    "农业农村",
-    "商务贸易",
-    "法治司法",
-    "工业制造",
-    "医疗保障",
-    "住房保障",
-    "科技创新",
-    "能源资源",
-    "市场监管",
-    "民政社会",
-    "应急安全",
-    "税收海关",
-    "国防军队",
-    "行业政策",
-    "行业补贴",
-    "公务员考试",
-    "军队招录",
-    "公招信息",
-    "招标信息",
-    "商业机会",
-    "招聘信息",
-    "活动通知",
-    "人才政策",
-    "养老与社区",
-    "招生信息",
-    "其他",
-]
+
+def _load_category_values() -> list[str]:
+    """从 config/categories.yaml 动态加载一级分类枚举。
+
+    GLiNER2 的 classification 约束和 validate_payload 的越界校验都以此为准，
+    必须与 config/categories.yaml 的 l1 枚举一致，否则政务文种等新类会被
+    强制改回「其他」，撤销 classify() 的正确分类。
+    """
+    path = Path(__file__).resolve().parent.parent / "config" / "categories.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return list((data.get("l1") or {}).keys())
+
+
+CATEGORY_VALUES = _load_category_values()
 
 ADMISSION_SUBCATEGORY_VALUES = [
     "高职单招",

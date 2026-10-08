@@ -5,7 +5,8 @@ scoring:
   title_weight: 3
   body_weight: 0
   specific_bonus: 2
-  tuned_on: 第1层13类沿用 synthetic 5000 条调优结果（L1=98.3% L2=89.3%）；第2层政务文种7类由 1465 条真实兜底记录审计得出（见 scripts/audit_categories.py），不参与合成集调参
+  tuned_on: 第1层13类沿用 synthetic 5000 条调优结果（L1=98.3% L2=89.3%）；第2层政务文种7类由 1465 条真实兜底记录审计得出（见
+    scripts/audit_categories.py），不参与合成集调参
 defaults:
   category_l1: 其他
   category_l2: 未分类
@@ -280,6 +281,19 @@ categories:
       - 合格情况
       - 无纸化考试
       - 资格审核
+      比选采购:
+      - 比选
+      - 比选公告
+      - 比选结果
+      - 竞争性比选
+      - 遴选公告
+      - 遴选结果
+      课题承担:
+      - 承担单位
+      - 课题研究单位
+      - 课题承担
+      - 研究承担单位
+      - 课题申报单位
   商业机会:
     required: false
     subcategories:

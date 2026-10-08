@@ -32,7 +32,7 @@ def main() -> int:
 
     con = sqlite3.connect(f"file:{ROOT / 'data' / 'beacon.db'}?mode=ro", uri=True)
     rows = con.execute(
-        "SELECT id, source_id, title, content, category_l1, category_l2 FROM announcements"
+        "SELECT id, source_id, title, content, category_l1, category_l2, extra FROM announcements"
     ).fetchall()
     total = len(rows)
     before = collections.Counter((r[4], r[5]) for r in rows)
@@ -40,8 +40,16 @@ def main() -> int:
     print(f"总量 {total} 条\n")
 
     results = []
-    for rid, source_id, title, content, old1, old2 in rows:
+    for rid, source_id, title, content, old1, old2, extra_json in rows:
+        # 带上 issuing_body：classify() 的关键词规则全部落空后会用发文机关兜底
+        # （config/department_map.yaml），lighthouse/run.py 的采集路径现在也传它。
+        # 不传的话，同一批文件「采集时」和「回填时」会分到不同的类。
+        try:
+            issuing_body = (json.loads(extra_json or "{}") or {}).get("issuing_body")
+        except (TypeError, ValueError):
+            issuing_body = None
         got = classify({"title": title or "", "content": content or "",
+                        "issuing_body": issuing_body,
                         "source": {"id": source_id}})
         results.append((rid, source_id, title, old1, old2,
                         got["category_l1"], got["category_l2"]))

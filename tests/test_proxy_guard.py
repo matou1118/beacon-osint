@@ -70,13 +70,27 @@ def _has_proxy() -> bool:
 class ProxyPreFlightTests(unittest.TestCase):
     """流水线必须在采集前探代理，不通就以非零码退出，而不是假跑一轮。"""
 
-    def test_pipeline_aborts_when_proxy_is_down(self):
+    def test_pipeline_warns_but_continues_when_proxy_is_down(self):
+        """代理不通 → **告警但继续**，不是中止。
+
+        ★ 这条断言 2026-10-05 改过方向。原来断言「代理不通时绝不能进入采集步骤」，
+        那对应的是「采集依赖系统代理」的旧设计。2026-10-03 起
+        ``collectors/base.py`` 已经 ``trust_env=False`` 直连，采集**不再需要代理**，
+        所以代理不通只该告警、不该拦停——否则一台没有代理的正常机器
+        会永远跑不了流水线。代码里的原话：
+        「代理不通，但采集走直连，继续。只有真需要代理的部署才该在这里拦停。」
+
+        之前这条测试一直红着，因为我把它误诊成「编码/streamlit 污染」，
+        实际是**测试期望与既定决策相反**。
+
+        真正要守住的底线是：告警必须出现（不能静默），且不能崩。
+        """
         env = dict(
             os.environ,
             BEACON_PIPELINE_LOCK=str(Path(os.environ.get("TEMP", ".")) /
                                       "beacon_test_proxy.lock"),
         )
-        # 把探测结果换成"不通"，看流水线是不是立刻退出、且不进入采集
+        # 把探测结果换成"不通"，看流水线是不是告警后继续、且不崩
         probe = (
             "import sys, runpy;"
             "sys.path.insert(0, r'%s');"
@@ -90,9 +104,14 @@ class ProxyPreFlightTests(unittest.TestCase):
                                 encoding="utf-8", errors="replace", timeout=120,
                                 env=env)
         combined = result.stdout + result.stderr
+        # 告警必须出现——不能静默吞掉代理不可用这件事
         self.assertIn("代理不通", combined)
-        self.assertNotIn("[collect]", combined,
-                         "代理不通时绝不能进入采集步骤")
+        # 必须崩在编码/IO 上吗？不。UnicodeEncodeError 是这里的头号回归。
+        self.assertNotIn("UnicodeEncodeError", combined,
+                         "pipeline.py 打印非 GBK 字符时崩溃了：%s" % combined[-400:])
+        # 采集走直连，所以步骤照常打印
+        self.assertIn("[collect]", combined,
+                      "trust_env=False 之后代理不通不该拦停采集")
 
     def test_dry_run_works_when_proxy_is_up(self):
         """反例：代理通的时候 --dry-run 必须照常打印步骤。"""

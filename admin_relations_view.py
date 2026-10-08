@@ -159,10 +159,10 @@ def render(db_path: str = "data/beacon.db") -> None:
                         )
                         st.caption(_evidence_text(item))
                     with right:
-                        approve = st.button("✅ 确认", key=f"ok-{item['link_id']}", use_container_width=True)
-                        reject = st.button("❌ 驳回", key=f"no-{item['link_id']}", use_container_width=True)
+                        approve = st.button("✅ 确认", key=f"ok-{item['link_id']}", width="stretch")
+                        reject = st.button("❌ 驳回", key=f"no-{item['link_id']}", width="stretch")
                         if item.get("url"):
-                            st.link_button("查看原文", item["url"], use_container_width=True)
+                            st.link_button("查看原文", item["url"], width="stretch")
                     if approve:
                         written = decide_link(db_path, item["link_id"], "approved")
                         st.success(f"已确认，新提取字段 {written} 条。")

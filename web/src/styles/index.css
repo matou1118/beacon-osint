@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --space-header: 56px;
+    /* 主题令牌兜底（默认蓝紫拼色）。store/theme.ts 会在启动时覆盖这些值，
+       这里只保证 JS 未执行前不出现裸 var()。格式：R G B 三元组。 */
+    --accent: 124 58 237;
+    --accent-hover: 109 40 217;
+    --top: 124 58 237;
+    --side: 49 46 129;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-base text-ink-900 font-sans;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 焦点环可见 —— 无障碍 */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
+  }
+
+  /* 选中态 */
+  ::selection {
+    @apply bg-accent-soft text-accent-hover;
+  }
+
+  /* 滚动条 —— 仪器感，细且不抢眼 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-400;
+  }
+}
+
+@layer components {
+  /* 卡片基底 */
+  .card {
+    @apply bg-surface border border-zinc-200/60 rounded-lg shadow-card;
+  }
+
+  /* 标签 chip */
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium;
+  }
+
+  /* 安全触控目标 */
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* 单行省略 */
+  .truncate-1 {
+    @apply overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  /* 多行省略 */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    @apply overflow-hidden;
+  }
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    @apply overflow-hidden;
+  }
+}
+
+@layer utilities {
+  /* 安全区域 */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}

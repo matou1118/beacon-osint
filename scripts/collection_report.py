@@ -45,6 +45,19 @@ def load_rounds(since: int | None) -> list[dict]:
     return rows[-since:] if since else rows
 
 
+def _utc_hour_to_local(bucket: str) -> str:
+    """把 ``created_at`` 的 UTC 小时桶换算成本地小时桶（仅用于展示）。
+
+    查询侧保持 UTC（能用上索引），转换只发生在给人看的地方。
+    跨天/跨月也处理：``2026-10-05T23``（UTC）→ 本地 ``2026-10-06T07``。
+    """
+    try:
+        moment = datetime.strptime(bucket, "%Y-%m-%dT%H").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return bucket
+    return moment.astimezone().strftime("%Y-%m-%dT%H")
+
+
 def db_snapshot() -> dict:
     if not DB.exists():
         return {}
@@ -55,11 +68,17 @@ def db_snapshot() -> dict:
     try:
         cur.execute("SELECT COUNT(*) FROM announcements")
         out["total"] = cur.fetchone()[0]
+        # created_at 存的是 **UTC**，所以 substr 分桶出来的也是 UTC 小时。
+        # 2026-10-05 实测踩过：原来直接把这个桶当本地小时展示，整张图偏 8 小时——
+        # 「晚上 8 点采了 422 条」被标成「凌晨 12 点」，看图的人会以为
+        # 深夜还在跑而白天没产出，正好和实际相反。
+        # 修法：查询侧保持 UTC（索引友好），**展示侧再转本地**。
         cur.execute(
             "SELECT substr(created_at,1,13) h, COUNT(*) FROM announcements "
             "GROUP BY h ORDER BY h DESC LIMIT 24"
         )
-        out["by_hour"] = [(r[0], r[1]) for r in cur.fetchall()]
+        out["by_hour"] = [(_utc_hour_to_local(r[0]), r[1]) for r in cur.fetchall()]
+        out["by_hour_tz"] = "local(UTC+8)"
         cur.execute(
             "SELECT source_id, COUNT(*) c FROM announcements GROUP BY source_id ORDER BY c DESC"
         )

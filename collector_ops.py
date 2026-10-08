@@ -27,6 +27,22 @@ IMPROVE_LOG = ROOT / "data" / "self_improve_log.jsonl"
 ROUNDS_LOG = ROOT / "data" / "rounds.jsonl"
 SOURCES_MEDIA = ROOT / "config" / "media_sources.yaml"
 
+# 真正在跑的采集器是 lighthouse，它不写上面那两个文件 —— 那套是旧
+# scripts/batch_collect.py 的产物，collect_progress.json 最后一次写入停在
+# 2026-09-27，页面却照读不误，于是一直显示一份两天前的"status: running"。
+# 进度和逐轮台账都得从 lighthouse 自己的产物里读。
+LIGHTHOUSE_DIR = ROOT / "data" / "runtime" / "lighthouse"
+LIGHTHOUSE_STATUS = LIGHTHOUSE_DIR / "status.json"
+LIGHTHOUSE_LOG = LIGHTHOUSE_DIR / "overnight.log"
+
+# [  5/109] 采到    0 丢弃   0 | 用时   4.2m 剩 25.8m 后停 | 在跑: ah_fgw,ah_gxt
+LIVE_PROGRESS_RE = re.compile(
+    r"^\[\s*(?P<done>\d+)/(?P<total>\d+)\]\s*"
+    r"采到\s*(?P<got>\d+)\s*丢弃\s*(?P<dropped>\d+)\s*\|"
+    r"\s*用时\s*(?P<elapsed>[\d.]+)m\s*剩\s*(?P<left>[\d.]+)m\s*后停\s*\|"
+    r"\s*在跑:\s*(?P<running>.*)$"
+)
+
 STATUS_LABEL = {
     "enabled": "启用", "pending_review": "待审核", "pending_reprobe": "待重探",
     "blocked": "受阻", "disabled": "已停用",
@@ -82,6 +98,90 @@ def read_progress() -> dict[str, Any] | None:
     if isinstance(data, dict):
         return data
     return None
+
+
+def read_lighthouse_status() -> dict[str, Any] | None:
+    """lighthouse 调度器的状态快照（轮次 / 深度 / 库内条数 / 逐轮台账）。"""
+    if not LIGHTHOUSE_STATUS.exists():
+        return None
+    try:
+        data = json.loads(LIGHTHOUSE_STATUS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def read_live_progress(max_age_seconds: float = 180.0) -> dict[str, Any] | None:
+    """本轮实时进度：源进度 / 采到 / 丢弃 / 已用时 / 剩余 / 在跑的源。
+
+    日志每 tick 一行，只认最后一条，并且要求日志文件本身是新鲜的
+    （max_age_seconds）—— 否则停了几天的日志会把最后一帧当成"正在进行"，
+    那正是旧快照「status: running 停更两天」的老毛病。
+    """
+    if not LIGHTHOUSE_LOG.exists():
+        return None
+    try:
+        age = datetime.now().timestamp() - LIGHTHOUSE_LOG.stat().st_mtime
+    except OSError:
+        return None
+    if age > max_age_seconds:
+        return {"stale": True, "age_seconds": round(age, 1)}
+
+    try:
+        with LIGHTHOUSE_LOG.open("r", encoding="utf-8", errors="replace") as handle:
+            tail = handle.readlines()[-400:]
+    except OSError:
+        return None
+
+    for line in reversed(tail):
+        matched = LIVE_PROGRESS_RE.match(line.strip())
+        if not matched:
+            continue
+        got = matched.group("got")
+        dropped = matched.group("dropped")
+        running = [s.strip() for s in matched.group("running").split(",") if s.strip()]
+        return {
+            "stale": False,
+            "done": int(matched.group("done")),
+            "total": int(matched.group("total")),
+            "records": int(got),
+            "dropped": int(dropped),
+            "elapsed_minutes": float(matched.group("elapsed")),
+            "left_minutes": float(matched.group("left")),
+            "running": running,
+            "log_age_seconds": round(age, 1),
+        }
+    return None
+
+
+def announcement_count(db_path: str = "data/beacon.db") -> int:
+    """库内公告条数，直接查库。
+
+    不读 status.json 的 db_now：那份快照只在一轮**结束**时才写（write_status
+    都在轮次之间），一轮 30 分钟里它一直是开轮时的旧值，面板上的"库内总数"
+    会比真实值少整整一轮的量。条数是一次 COUNT，代价可忽略。
+    """
+    path = ROOT / db_path if not Path(db_path).is_absolute() else Path(db_path)
+    if not path.exists():
+        return 0
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            return int(con.execute("SELECT COUNT(*) FROM announcements").fetchone()[0])
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return 0
+
+
+def status_age_seconds() -> float | None:
+    """status.json 距上次写入多久。None = 文件不存在。"""
+    if not LIGHTHOUSE_STATUS.exists():
+        return None
+    try:
+        return round(datetime.now().timestamp() - LIGHTHOUSE_STATUS.stat().st_mtime, 1)
+    except OSError:
+        return None
 
 
 def read_rounds(limit: int | None = None) -> list[dict[str, Any]]:
@@ -148,6 +248,82 @@ def read_improve_log(limit: int = 12) -> list[dict[str, Any]]:
         except ValueError:
             continue
     return rows[-limit:][::-1]
+
+
+DRILLABLE_METRICS = (
+    "under_200_chars_rate", "chrome_residue_rate", "summary_rate", "publish_date_rate",
+    "region_coverage_rate", "section_page_rate", "date_rate", "amount_rate",
+    "median_content_chars",
+)
+
+
+def metric_offenders(metric: str, db_path: str = "data/beacon.db", limit: int = 50) -> dict[str, Any]:
+    """§P0-2：把一个体检指标还原成触发它的记录，而不是只给一个比率。
+
+    判定式与 data_health 的阈值同源：直接复用它的正则，避免页面口径和体检口径
+    漂移。指标是比率时列出「拉低比率的记录」，是字数时列出最短的一批。
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import data_health  # type: ignore
+    except ImportError:
+        return {"count": 0, "rows": [], "error": "体检模块不可用"}
+
+    def no_summary(row: sqlite3.Row) -> bool:
+        if data_health.SECTION_RE.match(str(row["title"] or "").strip()):
+            return False
+        try:
+            extra = json.loads(row["extra"] or "{}") or {}
+        except (TypeError, ValueError):
+            extra = {}
+        return not extra.get("summary")
+
+    predicates = {
+        "under_200_chars_rate": lambda r: len(str(r["content"] or "")) < 200,
+        "chrome_residue_rate": lambda r: bool(data_health.CHROME_RE.search(str(r["content"] or ""))),
+        "amount_rate": lambda r: not data_health.AMOUNT_RE.search(str(r["content"] or "")),
+        "date_rate": lambda r: not data_health.DATE_RE.search(str(r["content"] or "")),
+        "summary_rate": no_summary,
+        "publish_date_rate": lambda r: not r["publish_date"],
+        "region_coverage_rate": lambda r: not r["region_province"],
+        "section_page_rate": lambda r: bool(data_health.SECTION_RE.match(str(r["title"] or "").strip())),
+    }
+    predicate = predicates.get(metric)
+    if predicate is None and metric != "median_content_chars":
+        return {"count": 0, "rows": [], "error": ""}
+
+    path = ROOT / db_path if not Path(db_path).is_absolute() else Path(db_path)
+    if not path.exists():
+        return {"count": 0, "rows": [], "error": "数据库不存在"}
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        rows = con.execute(
+            "SELECT id, source_id, title, content, publish_date, region_province, extra "
+            "FROM announcements"
+        ).fetchall()
+    except sqlite3.Error as exc:
+        return {"count": 0, "rows": [], "error": str(exc)}
+    finally:
+        con.close()
+
+    if metric == "median_content_chars":
+        hits = sorted(rows, key=lambda r: len(str(r["content"] or "")))
+    else:
+        hits = [r for r in rows if predicate(r)]
+    return {
+        "count": len(hits),
+        "error": "",
+        "rows": [
+            {
+                "id": r["id"],
+                "title": str(r["title"] or "（无标题）"),
+                "source_id": str(r["source_id"] or ""),
+                "length": len(str(r["content"] or "")),
+            }
+            for r in hits[:limit]
+        ],
+    }
 
 
 def read_health() -> dict[str, Any] | None:

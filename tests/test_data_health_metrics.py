@@ -96,8 +96,12 @@ class MetricReadsRealDataTests(unittest.TestCase):
             self.assertEqual(rate, round(matched / self.total, 4))
 
     def test_corroboration_rate_reads_the_column_not_extra(self) -> None:
+        # 列里的实际取值是 single_source / corroborated，没有 confirmed ——
+        # 实现查的也是 'corroborated'（data_health.py:221）。这里原先查
+        # 'confirmed'，恒得 0，于是拿 0 和实现的真实值对不上：库里有 114 条
+        # corroborated（rate 0.0163）却断言等于 0.0。
         confirmed = _scalar(
-            self.con, "SELECT COUNT(*) FROM announcements WHERE corroboration_status = 'confirmed'"
+            self.con, "SELECT COUNT(*) FROM announcements WHERE corroboration_status = 'corroborated'"
         )
         with_status = _scalar(
             self.con,
@@ -107,15 +111,24 @@ class MetricReadsRealDataTests(unittest.TestCase):
         rate = self.metrics.get("corroboration_pass_rate")
         self.assertIsInstance(rate, (int, float))
         self.assertEqual(rate, round(confirmed / self.total, 4))
-        # extra 里从来没有 corroboration 键，所以这个指标只能来自那一列。
+        # 指标必须来自 corroboration_status 那一列，不是从 extra 里凑的。
+        #
+        # 原来的写法是「extra 里没有 corroboration 键 且 库里没有 confirmed
+        # 记录 → 断言指标为 0」，用「库里恰好没数据」间接证明。那两个前提现在
+        # 都不成立了：extra 里确实没这个键（这部分仍有效），但库里已有 114 条
+        # corroborated，指标本就该是 0.0163 而不是 0。改成直接对比 —— 指标
+        # 恰好等于该列算出的比例，这才是「来自这一列」的正向证明。
         in_extra = _scalar(
             self.con, "SELECT COUNT(*) FROM announcements WHERE extra LIKE '%corroboration%'"
         )
-        if with_status and not in_extra:
-            self.assertEqual(
-                confirmed, 0,
-                "库里尚无 confirmed 记录时该指标应为 0，这是真实业务状态而非度量故障",
-            )
+        self.assertEqual(in_extra, 0,
+                         "extra 里不该有 corroboration 键；若有，指标来源就说不清了")
+        if with_status:
+            self.assertGreater(confirmed, 0,
+                               "有互证状态的行，就该算出非零的互证通过率")
+        else:
+            self.assertEqual(rate, 0.0,
+                             "库里没有互证状态时该指标为 0（真实业务状态，非度量故障）")
 
     def test_rates_stay_within_unit_interval(self) -> None:
         for key, value in self.metrics.items():
