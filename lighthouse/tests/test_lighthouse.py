@@ -9,6 +9,8 @@
 """
 from __future__ import annotations
 
+import inspect
+import os
 import sys
 from pathlib import Path
 
@@ -1220,3 +1222,44 @@ def test_links_hidden_in_script_datastore_are_recovered():
             collector.close()
         except Exception:
             pass
+
+def test_orphan_reaper_only_picks_schedulers_whose_parent_is_gone():
+    """清理无主调度器：只清「是调度器」且「父进程已死」的那些。
+
+    2026-10-09 实测的坑：watchdog 由计划任务每 15 分钟重复触发，而它拉起的
+    overnight 用 DETACHED_PROCESS 脱离进程组，所以 watchdog 被重启时已拉起的
+    调度器不会被带走 —— 一天攒了 2 个孤儿。它们卡在采集锁上干等，而更糟的是
+    **它们也在写 status.json**，于是 status_summary 汇报的轮次与入库量全是
+    死掉的孤儿写的，不可信。
+
+    杀错一个正在采集的调度器，代价远大于留一个孤儿，所以判据必须同时满足两条。
+
+    这里测**行为**而不是搜源码字符串 —— 上一版测试是搜 os.kill 是否出现，
+    结果被注释里那句解释「为什么不用 os.kill」误伤；而 child_alive() 的
+    POSIX 分支里 os.kill 恰恰是正确写法，一刀切禁掉同样是错的。
+    """
+    from lighthouse.watchdog import _orphan_scheduler_pids, _pid_alive
+
+    me = os.getpid()              # 一定活着，用来当「有主的」那条
+    dead = 999999999# 一定不存在，用来当「无主的」
+    assert _pid_alive(me) and not _pid_alive(dead), "测试前提不成立"
+
+    csv_fake = "\n".join([
+        "Node,CommandLine,ParentProcessId,ProcessId",          # 表头
+        "",                                                     # 空行
+        'HOST,"C:\\\\pythonw.exe" -u lighthouse/overnight.py --rounds 9999",%d,1111' % dead,
+        'HOST,"C:\\\\pythonw.exe" -u lighthouse/overnight.py --rounds 9999",%d,2222' % me,
+        'HOST,"C:\\\\pythonw.exe" -u lighthouse\\\\watchdog.py --rounds 9999",%d,3333' % dead,
+        'HOST,"C:\\\\python.exe" -m pytest tests/",%d,4444' % dead,
+        "",
+    ])
+
+    orphans = _orphan_scheduler_pids(csv_fake, me_pid=me)
+    assert orphans == [(1111, dead)], (
+        "只该清「是调度器且父进程已死」的那一条，实际 %r" % (orphans,))
+
+    # 自己永远不清理自己（哪怕它看起来像调度器）
+    self_row = ('HOST,"C:\\\\pythonw.exe" -u lighthouse/overnight.py",%d,%d' % (dead, me))
+    assert me not in [p for p, _ in
+                      _orphan_scheduler_pids("Node,CommandLine,ParentProcessId,ProcessId\n"
+                                            + self_row + "\n", me_pid=me)]

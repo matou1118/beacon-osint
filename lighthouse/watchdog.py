@@ -14,6 +14,8 @@ overnight.py 内部已经能扛住「一轮采集失败」（子进程返回码�
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import os
 import signal
@@ -189,6 +191,86 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _orphan_scheduler_pids(csv_text: str, me_pid: int = 0) -> list[tuple[int, int]]:
+    """从 wmic CSV 里挑出「无主调度器」，返回 [(pid, 父pid), ...]。
+
+    判据两条都要满足：
+      * 命令行含 ``overnight.py`` —— 只清调度器，别误杀别的 python 进程
+      * **父进程已死** —— 父进程还活着的那个是当前链自己的调度器
+
+    为什么值得抽成纯函数：这段逻辑埋在 main() 的闭包里时，只能靠「搜源码
+    字符串」来钉，而源码里就写着 ``os.kill(ppid, 0)``（在注释里解释为什么
+    不用它）——文本匹配根本分不清那是注释还是代码。抽出来才能真测。
+
+    **必须用 CSV。** 裸 ``get A,B,C`` 在命令行含空格/换行时会塌成单列
+    （CommandLine 自己就带换行），按位置切列必然切错。2026-10-07 实测踩过：
+    ``split(None, 2)`` 把整条命令行当成了 pid。
+    """
+    out: list[tuple[int, int]] = []
+    for row in csv.reader(io.StringIO(csv_text)):
+        # 列序：Node,CommandLine,ParentProcessId,ProcessId；表头与空行跳掉。
+        if len(row) < 4 or row[0].strip().lower() == "node":
+            continue
+        cmd, ppid_s, pid_s = row[1], row[2], row[3]
+        if "overnight.py" not in cmd:
+            continue
+        try:
+            pid, ppid = int(pid_s), int(ppid_s)
+        except ValueError:
+            continue
+        if pid == me_pid:
+            continue
+        # 父进程还活着 = 当前链的调度器，留着。
+        # 用 _pid_alive 而不是 os.kill(ppid, 0)：Windows 上后者是
+        # TerminateProcess 的意思，会**真的杀掉**父进程（见 _pid_alive 的注释）。
+        if _pid_alive(ppid):
+            continue
+        out.append((pid, ppid))
+    return out
+
+
+def reap_orphan_schedulers() -> None:
+    """watchdog 启动前清掉上一代留下的无主调度器。
+
+    为什么需要（2026-10-09 实测）：watchdog 由计划任务每 15 分钟重复触发，
+    而它拉起的 overnight 用 DETACHED_PROCESS 脱离了进程组，所以
+    **watchdog 被重启时，已经拉起的调度器不会被一起带走**。实测一天攒了 2 个：
+
+        pid 4720  overnight  父=4384(已死) 07:23 启动
+        pid 5280  overnight  父=1760(已死) 08:53 启动
+
+    它们卡在 collect.lock 上干等（--lock-wait-minutes 20），纯占内存；更糟的是
+    **它们也在写 status.json** —— status_summary 于是读到死掉的孤儿写的轮次
+    日志，汇报出来的 rounds_done / 入库量全不可信。
+
+    杀错一个正在采集的调度器，代价远大于留一个孤儿，所以判据必须同时看
+    「是不是调度器」和「父进程还在不在」。
+    """
+    if os.name != "nt":
+        return
+    try:
+        out = subprocess.run(
+            ["wmic", "process", "where", "name like 'python%'",
+             "get", "CommandLine,ParentProcessId,ProcessId", "/format:csv"],
+            capture_output=True, timeout=30,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        ).stdout.decode("mbcs", errors="replace")
+    except Exception:                                     # noqa: BLE001
+        return
+    killed = 0
+    for pid, ppid in _orphan_scheduler_pids(out, os.getpid()):
+        try:
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                           capture_output=True, timeout=20,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            killed += 1
+            log(f"清理无主调度器 pid={pid}（父进程 {ppid} 已死）")
+        except Exception:                                 # noqa: BLE001
+            pass
+    if killed:
+        log(f"共清理 {killed} 个无主调度器")
+
+
 def _another_watchdog_alive() -> bool:
     """记录里的 pid 是不是别的、且还活着的看门狗。"""
     if not WATCHDOG_PID.exists():
@@ -362,6 +444,9 @@ def main(argv: list[str] | None = None) -> int:
 
     restarts = 0
     child_pid = 0
+
+    # 先清上一代留下的无主调度器，再开始守夜。理由见 reap_orphan_schedulers。
+    reap_orphan_schedulers()
 
     def child_alive() -> bool:
         if os.name == "nt":
