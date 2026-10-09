@@ -78,6 +78,7 @@ body[data-lang="en"] .lang-en{display:block}
   border:0; background:transparent; color:var(--dim); cursor:pointer;
   font-family:var(--font); font-size:12.5px; font-weight:600;
   padding:7px 13px; transition:.22s; letter-spacing:.3px;
+  white-space:nowrap;   /* 「中文」两字在窄屏会被压成上下两行 */
 }
 .langbtn button:hover{color:var(--gold)}
 .langbtn button[aria-pressed="true"]{background:var(--gold);color:#0a0c14}
@@ -105,7 +106,14 @@ nav a:hover,nav a.on{color:var(--gold);background:rgba(240,185,11,.08)}
   transition:.18s; white-space:nowrap; position:relative; overflow:hidden}
 .gh:hover{filter:brightness(1.1); transform:translateY(-1px)}
 @media(max-width:900px){ nav{display:none} .langbtn{margin-left:auto} }
-@media(max-width:420px){ .logo span{font-size:14px} }
+@media(max-width:460px){
+  /* 窄屏：Logo 收短文字、按钮收窄间距，把宽度让给语言切换和GitHub */
+  .logo span{font-size:13.5px}
+  .logo{gap:7px}
+  .langbtn button{padding:7px 10px; font-size:12px}
+  .gh{padding:8px 12px; font-size:13px}
+  .bar{gap:7px}
+}
 
 /* ── Hero ── */
 .hero{padding:76px 0 56px; text-align:center}
