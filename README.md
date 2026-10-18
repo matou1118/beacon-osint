@@ -2,6 +2,8 @@
 
 # 灯塔 Beacon OSINT
 
+> 官网 / Official site: https://ttread.cn
+
 **聚焦中国政务公共信息的采集、抽取与归档工具**
 **A collection, extraction and archiving toolkit for Chinese government-affairs information**
 
